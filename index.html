@@ -371,7 +371,7 @@ const FUNNEL_CONFIG={
   },
   analytics:{ debug:true }, // true면 콘솔 로깅. 운영 시 false 권장
   collect:{                 // ▼ 응답 수집(구글 시트 등). endpoint 비우면 전송 안 함
-    endpoint:"https://script.google.com/macros/s/AKfycbz_rtSm_8ZWdkt3dF-Y0yapVkYMUypW1Ght8JegaDd61a7WwyIQnRBEQ6KUXhI71W-QTQ/exec",            // Apps Script 웹앱 URL (배포 후 붙여넣기) — Supabase 등으로 교체 가능
+    endpoint:"",            // Apps Script 웹앱 URL (배포 후 붙여넣기) — Supabase 등으로 교체 가능
     token:"",               // (선택) 간단 인증 토큰 — Apps Script와 동일 값
     requireConsent:true     // true면 동의 체크 시에만 전송
   }
@@ -417,6 +417,8 @@ function submitResults(stage,scored){
   const c=FUNNEL_CONFIG.collect;
   if(!c||!c.endpoint){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] endpoint 미설정 — 전송 생략'); return; }
   if(c.requireConsent && !consentGiven()){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] 동의 없음 — 전송 생략'); return; }
+  if(wqAns.indexOf(null)!==-1){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] 워크스타일 미완 — 전송 생략'); return; }
+  if(stage==='full' && firstUnansweredC()!==-1){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] 역량 미완 — 전송 생략'); return; }
   const payload=buildPayload(stage,scored); payload.token=c.token||'';
   try{
     fetch(c.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
@@ -434,12 +436,14 @@ function renderWQ(){const q=QW[wqIdx];$('wq-count').textContent=String(wqIdx+1).
   $('wq-kicker').textContent=AX_W[q.a].name;$('wq-text').textContent=q.t;
   const sc=$('wq-scale');sc.innerHTML='';W_SCALE.forEach(([label,val])=>{const b=document.createElement('button');b.className='opt'+(wqAns[wqIdx]===val?' sel':'');b.innerHTML='<span class="pip"></span>'+label;b.onclick=()=>{wqAns[wqIdx]=val;wqNext();};sc.appendChild(b);});
   $('wq-back').disabled=wqIdx===0;}
-function wqNext(){$('wq-prog').style.width=((wqIdx+1)/WN*100)+'%';setTimeout(()=>{if(wqIdx<WN-1){wqIdx++;renderWQ();}else finishW();},170);}
+let wqBusy=false;
+function wqNext(){if(wqBusy)return;wqBusy=true;$('wq-prog').style.width=((wqIdx+1)/WN*100)+'%';setTimeout(()=>{wqBusy=false;if(wqIdx<WN-1){wqIdx++;renderWQ();}else finishW();},170);}
 function wqBack(){if(wqIdx>0){wqIdx--;renderWQ();}}
 function scoreWcode(){const sums=[0,0,0,0],leans=[];for(let i=0;i<WN;i++){const q=QW[i];sums[q.a]+=(q.p===AX_W[q.a].P)?wqAns[i]:(6-wqAns[i]);}
   let code='';for(let a=0;a<4;a++){code+=(sums[a]>=12)?AX_W[a].P:AX_W[a].M;const pp=(sums[a]-4)/16*100;const lp=pp>=50;leans.push({ax:a,label:lp?AX_W[a].plus:AX_W[a].minus,pct:Math.round(lp?pp:100-pp),plus:pp});}
   return{code,leans};}
-function finishW(){const r=scoreWcode();W.code=r.code;W.leans=r.leans;W.t=T[r.code];paintW();track('a_free_complete',{style_code:W.code,type:W.t.n});submitResults('free');track('hook_view',{style_code:W.code});show('s-wresult');}
+function finishW(){const miss=wqAns.indexOf(null);if(miss!==-1){alert('답하지 않은 문항이 있어요. 모두 선택해 주세요.');wqIdx=miss;renderWQ();return;}
+  const r=scoreWcode();W.code=r.code;W.leans=r.leans;W.t=T[r.code];paintW();track('a_free_complete',{style_code:W.code,type:W.t.n});submitResults('free');track('hook_view',{style_code:W.code});show('s-wresult');}
 function drawMiniRadar(svgId){const svg=$(svgId);const cx=100,cy=92,R=66;const labels=['이해','활용','평가','창작','윤리','자기효능'];const vals=[0.78,0.62,0.85,0.55,0.7,0.66];
   const pt=(i,r)=>{const a=-Math.PI/2+i*Math.PI/3;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];};let s='';
   [1,0.66,0.33].forEach(k=>{let p='';for(let i=0;i<6;i++){const[x,y]=pt(i,R*k);p+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}s+=`<path d="${p}Z" fill="none" stroke="#E4E1EC" stroke-width="1"/>`;});
@@ -482,10 +486,15 @@ function renderCQ(){const it=COMP[cqIdx];$('cq-count').textContent=String(cqIdx+
     next.style.display='block';next.disabled=false;
   }
   $('cq-back').disabled=cqIdx===0;}
-function cqNext(){$('cq-prog').style.width=((cqIdx+1)/CN*100)+'%';const adv=()=>{if(cqIdx<CN-1){cqIdx++;renderCQ();}else finishC();};
+let cqBusy=false;
+function cqNext(){if(cqBusy)return;cqBusy=true;$('cq-prog').style.width=((cqIdx+1)/CN*100)+'%';const adv=()=>{cqBusy=false;if(cqIdx<CN-1){cqIdx++;renderCQ();}else finishC();};
   if(COMP[cqIdx].kind==='perf')adv();else setTimeout(adv,150);}
 function cqBack(){if(cqIdx>0){cqIdx--;renderCQ();}}
-function finishC(){track('competency_complete',{style_code:W.code});show('s-scoring');setTimeout(runScoring,900);}
+function firstUnansweredC(){for(let i=0;i<COMP.length;i++){const it=COMP[i];
+  if(it.kind==='perf'){const r=cRubric[it.id]||{};if(it.crit.some(c=>!(c.key in r)))return i;}
+  else{if(cResp[it.id]==null)return i;}}return -1;}
+function finishC(){const miss=firstUnansweredC();if(miss!==-1){alert('답하지 않은 문항이 있어요. 모두 응답해 주세요.');cqIdx=miss;renderCQ();return;}
+  track('competency_complete',{style_code:W.code});show('s-scoring');setTimeout(runScoring,900);}
 
 /* 샘플 빠른 채우기(데모) */
 function sampleSkip(){
