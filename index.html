@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 협업 프로파일 — 통합 진단 (데모)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ECEAF2; --surface:#fff; --ink:#1B1726; --muted:#6B6577; --line:#E4E1EC;
+    --studio:#FB923C; --artisan:#F43F84; --explore:#5566F0; --control:#10B981;
+    --accent:var(--explore); --accent-t:#ECEEFE;
+    --radius:20px; --shadow:0 8px 30px rgba(27,23,38,.10);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg); color:var(--ink); font-family:"Noto Sans KR",system-ui,sans-serif; line-height:1.6; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px; margin:0 auto; padding:24px 18px 80px; min-height:100vh}
+  .mono{font-family:"JetBrains Mono",monospace}
+  button{font-family:inherit; cursor:pointer; border:none}
+  textarea{font-family:inherit; width:100%; min-height:120px; border:1.5px solid var(--line); border-radius:12px; padding:13px; font-size:15px; resize:vertical}
+  textarea:focus{outline:none; border-color:var(--accent)}
+  :focus-visible{outline:3px solid var(--accent); outline-offset:2px; border-radius:8px}
+  .screen{display:none; animation:fade .4s ease} .screen.active{display:block}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)}to{opacity:1; transform:none}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+
+  .eyebrow{font-family:"Space Grotesk"; font-weight:500; letter-spacing:.2em; text-transform:uppercase; font-size:11.5px; color:var(--muted); display:flex; gap:10px; align-items:center}
+  .demo-tag{font-size:10.5px; font-weight:700; color:#fff; background:var(--ink); padding:3px 9px; border-radius:99px}
+  h1.tt{font-weight:900; font-size:clamp(28px,7.5vw,40px); line-height:1.18; letter-spacing:-.02em; margin:13px 0 6px}
+  h1.tt .ac{color:var(--explore)}
+  .lead{color:var(--muted); font-size:16px; margin:0 0 24px}
+  .card-soft{background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px}
+  .steps{display:flex; flex-direction:column; gap:12px; margin-top:4px}
+  .step{display:flex; gap:13px; align-items:flex-start}
+  .step .n{flex:0 0 auto; width:26px; height:26px; border-radius:99px; background:var(--accent-t); color:var(--accent); font-family:"JetBrains Mono"; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center}
+  .step .x{font-size:14px} .step .x b{font-weight:700} .step .x .free{color:var(--control); font-weight:700; font-size:12px} .step .x .paid{color:var(--accent); font-weight:700; font-size:12px}
+  .cta{display:block; width:100%; margin-top:24px; padding:18px; border-radius:16px; background:var(--ink); color:#fff; font-weight:700; font-size:17px; transition:transform .1s,opacity .2s}
+  .cta:hover{opacity:.92} .cta:active{transform:scale(.99)}
+  .meta-row{display:flex; justify-content:space-between; margin-top:16px; font-size:12.5px; color:var(--muted)}
+  .dots{display:flex; gap:8px; margin:20px 0 6px} .dot{flex:1; height:8px; border-radius:99px}
+
+  /* quiz shared */
+  .qhead{display:flex; align-items:center; gap:14px; margin-bottom:8px}
+  .qcount{font-family:"JetBrains Mono"; font-weight:800; font-size:14px; color:var(--muted)}
+  .prog{flex:1; height:6px; background:var(--line); border-radius:99px; overflow:hidden}
+  .prog>i{display:block; height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .35s}
+  .qcard{margin-top:28px}
+  .qkicker{font-family:"Space Grotesk"; font-weight:500; letter-spacing:.1em; text-transform:uppercase; font-size:11.5px; color:var(--accent)}
+  .qtext{font-size:20px; font-weight:700; margin:10px 0 26px; line-height:1.45; letter-spacing:-.01em}
+  .scale{display:flex; flex-direction:column; gap:10px}
+  .opt{display:flex; align-items:center; gap:13px; width:100%; text-align:left; padding:14px 15px; background:var(--surface); border:2px solid var(--surface); border-radius:14px; font-size:15px; font-weight:500; box-shadow:0 2px 10px rgba(27,23,38,.05); transition:border-color .15s, transform .08s; line-height:1.4}
+  .opt:hover{border-color:var(--line)} .opt:active{transform:scale(.995)}
+  .opt.sel{border-color:var(--accent); background:var(--accent-t)}
+  .opt .pip{width:20px; height:20px; border-radius:99px; border:2px solid var(--line); flex:0 0 auto; transition:.15s}
+  .opt.sel .pip{border-color:var(--accent); background:var(--accent); box-shadow:inset 0 0 0 4px var(--accent-t)}
+  .qnav{display:flex; justify-content:space-between; align-items:center; margin-top:22px}
+  .back{background:none; color:var(--muted); font-weight:600; font-size:15px; padding:10px 4px}
+  .back[disabled]{opacity:.3; cursor:default}
+  .nextbtn{background:var(--ink); color:#fff; font-weight:700; font-size:15px; padding:13px 26px; border-radius:13px}
+  .nextbtn[disabled]{opacity:.4; cursor:default}
+
+  /* workstyle result */
+  .rcard{background:var(--surface); border-radius:26px; box-shadow:var(--shadow); overflow:hidden}
+  .rtop{padding:28px 24px 24px; background:var(--accent-t); text-align:center}
+  .rtop .fam{font-family:"Space Grotesk"; font-weight:500; letter-spacing:.14em; text-transform:uppercase; font-size:12px; color:var(--accent)}
+  .code{font-family:"JetBrains Mono"; font-weight:800; font-size:clamp(48px,14vw,70px); line-height:1; color:var(--accent); margin:8px 0 4px}
+  .nick{font-weight:900; font-size:24px} .tagline{color:var(--muted); font-size:14.5px; margin-top:6px}
+  .badges{display:flex; gap:8px; justify-content:center; margin-top:14px; flex-wrap:wrap}
+  .badge{font-size:12px; font-weight:700; padding:6px 12px; border-radius:99px; background:#fff; border:1px solid var(--line)}
+  .badge.tier{color:#fff; border:none; background:var(--accent)}
+  .rbody{padding:22px 24px 26px}
+  .bars{display:flex; flex-direction:column; gap:12px; margin:2px 0 22px}
+  .bar .blab{display:flex; justify-content:space-between; font-size:12.5px; color:var(--muted); margin-bottom:5px} .bar .blab b{color:var(--ink)}
+  .track{height:9px; background:var(--line); border-radius:99px; position:relative} .track>i{position:absolute; top:0; bottom:0; border-radius:99px; background:var(--accent)}
+  .desc{font-size:15px; margin:0 0 20px}
+  .sub{font-family:"Space Grotesk"; font-weight:700; letter-spacing:.04em; text-transform:uppercase; font-size:12px; color:var(--muted); margin:20px 0 11px}
+  .chips{display:flex; gap:8px; flex-wrap:wrap} .chip{font-size:13px; font-weight:600; padding:7px 12px; border-radius:11px; background:var(--accent-t)}
+  .guide-box{font-size:14px; line-height:1.7; background:var(--accent-t); border:1px solid var(--line); border-radius:13px; padding:14px 15px; white-space:pre-wrap; word-break:keep-all}
+  .copybtn{width:100%; margin-top:11px; padding:13px; border-radius:13px; background:var(--accent); color:#fff; font-weight:700; font-size:14.5px; transition:transform .08s, background .25s}
+  .copybtn:active{transform:scale(.99)} .copybtn.done{background:var(--ink)}
+
+  /* lock / gate */
+  .lock{margin-top:26px; border-radius:22px; overflow:hidden; border:1px solid var(--line); background:linear-gradient(180deg,#fff,#FAF9FB)}
+  .lock-head{padding:20px 20px 4px; text-align:center}
+  .lock-head .kk{font-family:"Space Grotesk"; font-weight:500; letter-spacing:.14em; text-transform:uppercase; font-size:11px; color:var(--accent)}
+  .lock-head h3{margin:8px 0 2px; font-size:20px; font-weight:900} .lock-head h3 em{font-style:normal; color:var(--accent)}
+  .lock-head p{margin:6px 0 0; font-size:13.5px; color:var(--muted)}
+  .radar-wrap{position:relative; display:flex; justify-content:center; padding:12px 0 6px}
+  .radar-blur{filter:blur(3px); opacity:.85}
+  .radar-lockbadge{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px}
+  .radar-lockbadge .lc{font-size:28px} .radar-lockbadge .lt{font-family:"Space Grotesk"; font-weight:700; font-size:11px; letter-spacing:.1em; text-transform:uppercase; background:rgba(255,255,255,.85); padding:4px 12px; border-radius:99px; box-shadow:var(--shadow)}
+  .feats{list-style:none; margin:6px 0 0; padding:0 22px}
+  .feats li{display:flex; gap:10px; align-items:flex-start; font-size:14px; padding:7px 0; border-top:1px solid var(--line)} .feats li:first-child{border-top:none} .feats .fi{color:var(--accent); font-weight:800}
+  .gap-hook{margin:14px 22px 0; padding:13px 15px; border-radius:14px; background:var(--accent-t); border:1px solid var(--line); font-size:14px} .gap-hook b{color:var(--accent)}
+  .lock-cta{width:calc(100% - 44px); margin:16px 22px 6px; padding:16px; border-radius:15px; background:var(--ink); color:#fff; font-weight:700; font-size:16px; transition:transform .1s}
+  .lock-cta:active{transform:scale(.99)}
+  .lock-cont{font-size:12.5px; color:var(--muted); text-align:center; margin:0 0 18px}
+
+  /* gate / payment */
+  .pay-amt{font-family:"JetBrains Mono"; font-weight:800; font-size:30px; color:var(--ink)}
+  .pay-amt s{color:var(--muted); font-size:18px; font-weight:700; margin-right:8px}
+  .pay-note{font-size:12px; color:var(--muted); text-align:center; margin-top:10px}
+  .ghost{display:block; width:100%; margin-top:10px; padding:13px; border-radius:13px; background:#fff; border:1px solid var(--line); color:var(--muted); font-weight:600; font-size:14px}
+
+  /* competency perf */
+  .crit{margin-top:14px}
+  .crit .ci{font-size:13.5px; font-weight:600; margin-bottom:6px}
+  .crit .ci .hint{display:block; font-weight:400; color:var(--muted); font-size:12px; margin-top:2px}
+  .seg{display:flex; gap:6px}
+  .seg button{flex:1; padding:9px 4px; border-radius:10px; background:#fff; border:1.5px solid var(--line); font-size:12.5px; font-weight:700; color:var(--muted)}
+  .seg button.on{border-color:var(--accent); background:var(--accent-t); color:var(--accent)}
+
+  /* scoring */
+  .scoring{text-align:center; padding:60px 0}
+  .spinner{width:46px; height:46px; border:4px solid var(--line); border-top-color:var(--accent); border-radius:99px; margin:0 auto 20px; animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* report */
+  .card{background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px; margin-bottom:16px}
+  .recap{display:flex; align-items:center; gap:14px}
+  .recap .rc{font-family:"JetBrains Mono"; font-weight:800; font-size:26px; color:var(--accent)}
+  .recap .rn{font-weight:900; font-size:18px} .recap .rg{font-size:12.5px; color:var(--muted)}
+  .recap .pill{margin-left:auto; font-size:11.5px; font-weight:700; color:var(--accent); background:var(--accent-t); padding:6px 11px; border-radius:99px}
+  .grade-band{background:linear-gradient(160deg,var(--accent),color-mix(in srgb,var(--accent) 62%,#000)); color:#fff; border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); margin-bottom:16px}
+  .grade-band .gl{font-family:"Space Grotesk"; font-weight:500; letter-spacing:.16em; text-transform:uppercase; font-size:11px; opacity:.9}
+  .grade-band .gv{display:flex; align-items:baseline; gap:12px; margin:8px 0 2px} .grade-band .gnum{font-family:"JetBrains Mono"; font-weight:800; font-size:46px; line-height:1} .grade-band .gname{font-size:22px; font-weight:900}
+  .grade-band .gscale{display:flex; gap:4px; margin:14px 0 6px} .grade-band .gscale i{flex:1; height:6px; border-radius:99px; background:rgba(255,255,255,.28)} .grade-band .gscale i.on{background:#fff}
+  .grade-band .gmsg{font-size:13.5px; opacity:.96; margin-top:8px}
+  .radar-box{display:flex; justify-content:center; padding:6px 0 2px}
+  .dimrow{padding:11px 0; border-top:1px solid var(--line)} .dimrow:first-of-type{border-top:none}
+  .dimrow .dh{display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:6px} .dimrow .dh .dn{font-weight:700} .dimrow .dh .ds{font-family:"JetBrains Mono"; font-weight:800; margin-left:auto; font-size:14px}
+  .gchip{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px; background:#FAF9FB; border:1px solid var(--line); color:var(--muted)} .gchip.g2,.gchip.g3{background:var(--accent-t); border-color:transparent; color:var(--accent)}
+  .dimrow.prio{background:var(--accent-t); margin:0 -12px; padding:11px 12px; border-radius:12px; border-top:none}
+  .dimrow .dt{height:8px; background:var(--line); border-radius:99px; overflow:hidden} .dimrow .dt>i{display:block; height:100%; border-radius:99px; background:var(--accent); transition:width .5s}
+  .flag{font-size:10.5px; font-weight:700; color:var(--accent)}
+  .gconcl{display:flex; align-items:center; gap:10px; padding:14px 16px; border-radius:14px; background:var(--accent-t); margin-bottom:4px}
+  .gconcl .lab{font-size:12px; color:var(--muted); font-weight:700} .gconcl .dim{font-weight:900; font-size:19px; color:var(--accent)} .gconcl .sc{margin-left:auto; font-family:"JetBrains Mono"; font-weight:800; font-size:15px; color:var(--accent)}
+  .gblk{margin-top:16px} .gblk .bl{font-family:"Space Grotesk"; font-weight:700; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; display:flex; gap:6px; align-items:center} .gblk .bl::before{content:""; width:14px; height:2px; background:var(--accent); display:inline-block}
+  .gblk p{margin:0; font-size:14px} .mech p{margin:0 0 10px} .mech p:last-child{margin:0}
+  .risks{list-style:none; margin:0; padding:0} .risks li{font-size:13.5px; padding:6px 0 6px 22px; position:relative} .risks li::before{content:"⚠"; position:absolute; left:0; color:#E0843C}
+  .synbox{font-size:14px; background:#FAF9FB; border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:12px; padding:13px 15px}
+  .imx-intro{font-size:13px; color:var(--muted); margin:0 0 10px}
+  .imx-lines{list-style:none; margin:0 0 12px; padding:0} .imx-lines li{font-size:13.5px; padding:8px 0 8px 16px; position:relative; border-top:1px solid var(--line); line-height:1.55} .imx-lines li:first-child{border-top:none} .imx-lines li::before{content:"·"; position:absolute; left:3px; color:var(--accent); font-weight:900} .imx-lines strong{font-weight:800}
+  .imx-concl{font-size:13.5px; font-weight:600; background:var(--accent-t); border-radius:12px; padding:12px 14px}
+  .prog2{background:var(--accent-t); border-radius:12px; padding:14px 15px} .prog2 .pg{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); margin-bottom:10px} .prog2 .pg b{color:var(--accent); font-family:"JetBrains Mono"} .prog2 ol{margin:0; padding-left:20px; font-size:13.5px} .prog2 ol li{padding:3px 0}
+  .tk-intro{font-size:13.5px; color:var(--muted); margin:0 0 14px} .tk-intro b{color:var(--ink)}
+  .tk-prompt{font-family:"JetBrains Mono"; font-size:12.5px; line-height:1.75; background:#1B1726; color:#EDEBF2; border-radius:13px; padding:15px 16px; white-space:pre-wrap; word-break:break-word; overflow-x:auto} .tk-prompt .star{color:var(--accent); font-weight:800}
+  .setrow{border-top:1px solid var(--line); padding:13px 0} .setrow:first-of-type{border-top:none} .setrow .nm{font-weight:800; font-size:14px; display:flex; align-items:center; gap:8px} .setrow .nm .ic{width:20px; height:20px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff} .setrow .wh{font-size:13px; color:var(--muted); margin-top:5px} .setrow .wh b{color:var(--ink)} .setrow .pre{font-size:12.5px; margin-top:4px; color:var(--accent); font-weight:600}
+  .tips{list-style:none; margin:10px 0 0; padding:0} .tips li{font-size:13px; padding:6px 0 6px 18px; position:relative; color:var(--muted)} .tips li::before{content:"·"; position:absolute; left:4px; color:var(--accent); font-weight:900} .tips b{color:var(--ink)}
+  .track-note{font-size:12.5px; color:var(--muted); margin:0 0 12px}
+  .disclaimer{font-size:11.5px; color:var(--muted); text-align:center; margin-top:18px; line-height:1.55}
+  .crosslink{font-size:12.5px; color:var(--accent); font-weight:600; text-align:center; margin:18px 0 6px; cursor:pointer} .crosslink b{font-weight:800}
+  .consent{display:flex; align-items:flex-start; gap:9px; margin-top:14px; font-size:12.5px; color:var(--muted); line-height:1.5; cursor:pointer} .consent input{margin-top:2px; width:16px; height:16px; accent-color:var(--accent); flex:0 0 auto} .consent span{color:var(--muted); opacity:.8}
+  .restart{display:block; width:100%; margin-top:8px; padding:14px; border-radius:13px; background:#fff; border:1px solid var(--line); color:var(--muted); font-weight:600; font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. INTRO -->
+  <section id="s-intro" class="screen active">
+    <div class="eyebrow">AI 협업 프로파일 <span class="demo-tag">통합 데모</span></div>
+    <h1 class="tt">AI와 일하는<br><span class="ac">나</span>를 진단합니다</h1>
+    <p class="lead">먼저 무료로 협업 <b>스타일</b>을 알아보고, 이어서 6개 <b>역량</b>까지 진단해 성장 경로를 받습니다.</p>
+    <div class="card-soft">
+      <div class="steps">
+        <div class="step"><span class="n">1</span><div class="x"><b>워크스타일 16문항</b> <span class="free">무료</span><br><span style="color:var(--muted);font-size:13px">16가지 협업 유형 + 스타일 튜닝 프롬프트</span></div></div>
+        <div class="step"><span class="n">2</span><div class="x"><b>역량 진단 48문항</b> <span class="paid">심화</span><br><span style="color:var(--muted);font-size:13px">6차원 레이더 + 갭 분석 + 맞춤 처방</span></div></div>
+      </div>
+      <div class="dots"><div class="dot" style="background:var(--studio)"></div><div class="dot" style="background:var(--artisan)"></div><div class="dot" style="background:var(--explore)"></div><div class="dot" style="background:var(--control)"></div></div>
+    </div>
+    <button class="cta" onclick="startW()">무료 진단 시작</button>
+    <label class="consent"><input type="checkbox" id="consentChk"> 익명 응답을 검사 개선·연구에 활용하는 데 동의합니다 <span>(선택 · 개인정보 수집 안 함)</span></label>
+    <div class="meta-row"><span>1단계 약 2분 · 로그인 불필요</span><span>데모</span></div>
+  </section>
+
+  <!-- 2. WORKSTYLE QUIZ -->
+  <section id="s-wq" class="screen">
+    <div class="qhead"><span class="qcount" id="wq-count">01 / 16</span><div class="prog"><i id="wq-prog"></i></div></div>
+    <div class="qcard"><div class="qkicker" id="wq-kicker">접근</div><div class="qtext" id="wq-text">—</div><div class="scale" id="wq-scale"></div>
+      <div class="qnav"><button class="back" id="wq-back" onclick="wqBack()">← 이전</button><span style="font-size:12.5px;color:var(--muted)">선택하면 다음으로</span></div></div>
+  </section>
+
+  <!-- 3. WORKSTYLE RESULT -->
+  <section id="s-wresult" class="screen">
+    <div class="rcard">
+      <div class="rtop"><div class="fam" id="w-fam"></div><div class="code mono" id="w-code"></div><div class="nick" id="w-nick"></div><div class="tagline" id="w-tag"></div><div class="badges" id="w-badges"></div></div>
+      <div class="rbody">
+        <div class="bars" id="w-bars"></div>
+        <p class="desc" id="w-desc"></p>
+        <div class="sub">강점</div><div class="chips" id="w-str"></div>
+        <div class="sub">📋 내 스타일 AI 사용 설명서</div>
+        <div class="guide-box" id="w-guide"></div>
+        <button class="copybtn" id="w-copy" onclick="copyText(GUIDE[W.code],'w-copy','📋 설명서 복사하기','style_prompt_copy')">📋 설명서 복사하기</button>
+        <div class="lock">
+          <div class="lock-head"><div class="kk">NEXT · 심화 진단</div><h3>스타일은 알았으니, 이제 <em>실력</em>까지</h3><p>6개 역량을 진단하고 성장 경로를 처방합니다.</p></div>
+          <div class="radar-wrap"><svg class="radar-blur" width="220" height="190" viewBox="0 0 200 190" id="w-radar" aria-hidden="true"></svg><div class="radar-lockbadge"><div class="lc">🔒</div><div class="lt">유료 · LOCKED</div></div></div>
+          <ul class="feats"><li><span class="fi">◆</span><span>6개 역량 <b>레이더</b> + 종합 등급</span></li><li><span class="fi">◆</span><span><b>갭 분석</b> — 내 스타일이 어떤 역량을 키우면 시너지인지</span></li><li><span class="fi">◆</span><span>맞춤 <b>성장 처방</b> + AI 튜닝 키트</span></li></ul>
+          <div class="gap-hook" id="w-gaphook"></div>
+          <button class="lock-cta" onclick="goGate()">심화 진단 받기</button>
+          <div class="lock-cont">이미 푼 16문항은 그대로 이어집니다 →</div>
+        </div>
+        <div class="crosslink" onclick="crossLink('mindset')">AI를 <b>대하는 태도</b>가 궁금하다면 → 마인드셋 검사(무료)</div>
+        <button class="restart" onclick="restartAll()">처음부터 다시</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. GATE / PAYMENT (stub) -->
+  <section id="s-gate" class="screen">
+    <div class="eyebrow">심화 진단 · 결제</div>
+    <h1 class="tt" style="font-size:26px">AI 역량 프로파일</h1>
+    <p class="lead">6개 차원을 진단하고, <b id="gate-nick"></b> 유형에 맞는 성장 경로를 처방합니다.</p>
+    <div class="card-soft">
+      <ul class="feats" style="padding:0"><li><span class="fi">◆</span><span>역량 <b>48문항</b> 응시 (약 8–12분)</span></li><li><span class="fi">◆</span><span>6차원 레이더 + 종합 등급</span></li><li><span class="fi">◆</span><span>갭 분석 + 성장 처방 + AI 튜닝 키트</span></li><li><span class="fi">◆</span><span>재검사로 성장 추이 추적</span></li></ul>
+      <div style="text-align:center;margin-top:18px"><span class="pay-amt"><s>베타</s>무료 체험</span></div>
+      <div class="pay-note">데모 화면입니다 — 실제 결제는 연동되지 않습니다.</div>
+    </div>
+    <button class="cta" onclick="payDemo()">결제하고 진단 시작 (데모)</button>
+    <button class="ghost" onclick="sampleSkip()">⚡ 샘플 응답으로 리포트 미리보기 (데모)</button>
+    <button class="ghost" onclick="show('s-wresult')">← 무료 결과로 돌아가기</button>
+  </section>
+
+  <!-- 5. COMPETENCY QUIZ -->
+  <section id="s-cq" class="screen">
+    <div class="qhead"><span class="qcount" id="cq-count">01 / 48</span><div class="prog"><i id="cq-prog"></i></div></div>
+    <div class="qcard"><div class="qkicker" id="cq-kicker"></div><div class="qtext" id="cq-text"></div>
+      <div id="cq-body"></div>
+      <div class="qnav"><button class="back" id="cq-back" onclick="cqBack()">← 이전</button><button class="nextbtn" id="cq-next" onclick="cqNext()" style="display:none">다음 →</button></div>
+    </div>
+  </section>
+
+  <!-- 6. SCORING -->
+  <section id="s-scoring" class="screen"><div class="scoring"><div class="spinner"></div><div style="font-weight:700;font-size:17px">역량을 채점하고 있어요…</div><div style="color:var(--muted);font-size:13.5px;margin-top:6px">6차원 점수와 성장 경로를 계산 중</div></div></section>
+
+  <!-- 7. REPORT -->
+  <section id="s-report" class="screen">
+    <div class="eyebrow">AI 협업 프로파일 · 심화 리포트 <span class="demo-tag">데모</span></div>
+    <h1 class="tt" style="font-size:28px">AI 역량 프로파일</h1>
+    <p class="lead" style="margin-bottom:16px">스타일(선호)에 이어, 당신의 <b>역량(실력)</b>을 6개 차원으로 진단했습니다.</p>
+    <div class="card recap" id="r-recap"></div>
+    <div class="grade-band" id="r-grade"></div>
+    <div class="card"><div class="sub">역량 레이더 · 6차원</div><div class="radar-box"><svg width="300" height="270" viewBox="0 0 300 270" id="r-radar"></svg></div><div id="r-dimrows" style="margin-top:8px"></div></div>
+    <div class="card">
+      <div class="sub">갭 분석 · 스타일 × 역량</div>
+      <div class="gconcl"><span class="lab">우선 성장 역량</span><span class="dim" id="g-dim"></span><span class="sc" id="g-sc"></span></div>
+      <div class="gblk"><div class="bl">메커니즘 · 왜 이 역량인가</div><div id="g-mech" class="mech"></div></div>
+      <div class="gblk"><div class="bl">이런 순간 비용이 든다</div><ul class="risks" id="g-risks"></ul></div>
+      <div class="gblk"><div class="bl">채우면 — 시너지</div><div class="synbox" id="g-syn"></div></div>
+      <div class="gblk"><div class="bl">스타일 × 역량 상호작용</div><p class="imx-intro" id="g-i-intro"></p><ul class="imx-lines" id="g-i-lines"></ul><div class="imx-concl" id="g-i-concl"></div></div>
+      <div class="gblk"><div class="bl">진행 경로</div><div class="prog2"><div class="pg"><span>현재</span><b id="p-now"></b><span>→ 4주 목표</span><b id="p-goal"></b></div><ol id="g-routine"></ol></div></div>
+    </div>
+    <div class="card">
+      <div class="sub">맞춤 AI 튜닝 키트</div>
+      <p class="tk-intro">무료가 'AI를 내 스타일에 맞추기'라면, 여기선 맞추면서 <b>약점 역량(<span id="tk-gap"></span>)을 자동으로 훈련</b>시킵니다.</p>
+      <div class="tk-prompt" id="tk-prompt"></div>
+      <button class="copybtn" id="tk-copy" onclick="copyText(TUNE[R.code].prompt,'tk-copy','📋 프롬프트 복사하기','tuning_prompt_copy')">📋 프롬프트 복사하기</button>
+      <div class="sub" style="margin-top:24px">도구별 설정법</div><div id="r-setrows"></div>
+      <div class="sub" style="margin-top:22px">유지·보수</div>
+      <ul class="tips"><li><b>메모리 드리프트</b> — 메모리가 쌓여 설정을 덮어쓸 수 있어요. 분기 1회 점검.</li><li><b>경계선 유형</b> — 두 극이 박빙이면 이웃 스타일 문장을 섞으세요.</li><li><b>작업별 덮어쓰기</b> — "이번 건만 단계별로"처럼 그때그때 조정.</li><li><b>재검사 연동</b> — 4주 뒤 점수 변화로 강도 조절.</li></ul>
+    </div>
+    <div class="card"><div class="sub">재검사 추적 · 성장 추이</div><p class="track-note">이번 점수를 저장해 두면, 다음 검사에서 얼마나 자랐는지 보여드립니다.</p><div class="radar-box"><svg width="320" height="170" viewBox="0 0 320 170" id="r-trend"></svg></div></div>
+    <div class="disclaimer">데모 — 점수는 응시 응답을 <span class="mono">scoreLayer2()</span> 엔진으로 채점한 실제 값입니다. 창작 차원은 자기평정(정식판은 전문가/LLM 채점). 이론 기반 설계 · 베타 타당화 후 정식 제공. 등급은 심판이 아니라 성장 좌표입니다.</div>
+    <div class="crosslink" onclick="crossLink('mindset')">AI를 <b>대하는 태도</b>도 궁금하다면 → 마인드셋 검사(무료)</div>
+    <button class="restart" onclick="restartAll()">처음부터 다시</button>
+  </section>
+</div>
+
+<script>
+/* ===== DATA ===== */
+const GROUPS_W = {"studio": {"name": "스튜디오군", "emoji": "🎬", "color": "#FB923C", "tint": "#FFF3E8", "en": "STUDIO"}, "artisan": {"name": "장인군", "emoji": "🎨", "color": "#F43F84", "tint": "#FEECF3", "en": "ARTISAN"}, "explore": {"name": "탐구군", "emoji": "🔭", "color": "#5566F0", "tint": "#ECEEFE", "en": "EXPLORER"}, "control": {"name": "관제군", "emoji": "🛰", "color": "#10B981", "tint": "#E7F8F2", "en": "CONTROL"}};
+const AX_W = [{"name": "접근", "plus": "즉흥", "minus": "설계", "P": "S", "M": "B"}, {"name": "분업", "plus": "위임", "minus": "합작", "P": "D", "M": "P"}, {"name": "검증", "plus": "신뢰", "minus": "검증", "P": "T", "M": "V"}, {"name": "용도", "plus": "창작", "minus": "분석", "P": "C", "M": "A"}];
+const QW = [{"t": "AI에 일을 시킬 때, 완벽한 프롬프트보다 일단 던지고 결과를 보며 다듬는다.", "a": 0, "p": "S"}, {"t": "계획을 길게 세우기보다, 초안을 빨리 만들어 놓고 고쳐 가는 편이 편하다.", "a": 0, "p": "S"}, {"t": "작업 전에 원하는 결과·제약·형식을 구조화해 프롬프트를 설계하고 시작한다.", "a": 0, "p": "B"}, {"t": "무엇을·어떻게 할지 머릿속에서 정리된 뒤에야 AI에 요청하는 편이다.", "a": 0, "p": "B"}, {"t": "전체 작업을 AI에 통째로 맡기고 최종 결과만 확인하는 편이다.", "a": 1, "p": "D"}, {"t": "중간 과정보다, AI가 알아서 완성해 온 결과부터 보고 싶다.", "a": 1, "p": "D"}, {"t": "AI가 한 단계씩 제안하면 내가 승인·수정하며 함께 완성해 가는 편이다.", "a": 1, "p": "P"}, {"t": "통째로 맡기기보다, 단계마다 내 손을 거치며 만들어 가는 쪽이 좋다.", "a": 1, "p": "P"}, {"t": "AI가 자신 있게 답하면 대체로 맞다고 보고 그대로 쓰는 편이다.", "a": 2, "p": "T"}, {"t": "일일이 검증하기보다, 속도를 위해 AI의 답을 신뢰하고 진행한다.", "a": 2, "p": "T"}, {"t": "AI는 그럴듯하게 틀릴 수 있어 사실·수치는 꼭 교차검증한다.", "a": 2, "p": "V"}, {"t": "중요한 내용일수록 출처와 근거를 직접 확인한 뒤에 쓴다.", "a": 2, "p": "V"}, {"t": "백지에서 새로운 것을 생성·창작할 때 AI가 가장 유용하다.", "a": 3, "p": "C"}, {"t": "아이디어·초안·디자인을 '만들어 내는' 일에 AI를 주로 쓴다.", "a": 3, "p": "C"}, {"t": "복잡한 정보를 정리·분석해 결론을 도출할 때 AI가 가장 유용하다.", "a": 3, "p": "A"}, {"t": "무언가를 새로 만들기보다, 검토·비교·판단에 AI를 주로 쓴다.", "a": 3, "p": "A"}];
+const T = {"SDTC": {"f": "studio", "n": "로켓", "tag": "일단 쏘고, 통째로 맡기고, 곧장 만든다.", "r": 14.6, "tier": "흔함", "d": "아이디어가 떠오르면 망설임 없이 AI에 던지고, 통째로 맡겨 완성품부터 받아 봅니다. 속도가 곧 당신의 무기죠. 남들이 기획서를 쓰는 동안 당신은 이미 세 번째 시안을 굴리고 있습니다.", "s": ["폭발적 추진력", "빠른 시제품화", "주저 없는 실행"], "sh": "속도에 취해 검수를 건너뛸 때가 있어요.", "g": "마지막에 결과를 한 번만 교차확인하면(→검증) 추진력에 신뢰가 더해집니다.", "c": "BDVC", "o": "BPVA"}, "SDVC": {"f": "studio", "n": "쇼러너", "tag": "빠르게 맡기되, 나가는 건 내가 검수한다.", "r": 5.4, "tier": "드묾", "d": "제작은 과감하게 AI에 위임하지만, 세상에 내보내는 건 반드시 당신 손을 거칩니다. 다작과 품질을 동시에 쥐는 사람이죠. 빠르게 찍어내되 마지막 컷은 당신이 자릅니다.", "s": ["다작과 품질의 균형", "빠른 의사결정", "결과물 책임감"], "sh": "검수 병목이 당신에게 몰릴 수 있어요.", "g": "믿을 만한 단계는 가끔 그냥 통과시키면(→신뢰) 더 멀리 갑니다.", "c": "BDTC", "o": "BPTA"}, "BDTC": {"f": "studio", "n": "양산 설계자", "tag": "한 번 설계하면, 똑같이 천 번 찍는다.", "r": 7.7, "tier": "보통", "d": "먼저 구조와 템플릿을 설계해 두고, 그 틀에 맞춰 AI가 대량으로 생산하게 합니다. 일회성이 아니라 시스템을 만드는 사람이죠. 당신이 깐 레일 위로 결과물이 끝없이 굴러 나옵니다.", "s": ["시스템 설계력", "규모의 생산", "재현 가능한 품질"], "sh": "틀이 굳으면 예외의 묘수를 놓칠 수 있어요.", "g": "가끔 결과를 직접 검증해 보면(→검증) 틀이 더 단단해집니다.", "c": "SDVC", "o": "SPVA"}, "BDVC": {"f": "studio", "n": "스튜디오 헤드", "tag": "기획부터 검수까지, 제작의 전 공정을 쥔다.", "r": 4.9, "tier": "희귀", "d": "원하는 그림을 먼저 설계하고, 제작은 AI에 맡기되, 나온 결과를 깐깐히 검수해 완성합니다. 한 편의 제작을 총괄하는 디렉터죠. 방향·생산·품질 — 세 키를 한 손에 쥡니다.", "s": ["총괄 기획력", "품질 관리", "완성도 집착"], "sh": "전부 통제하려다 속도가 느려질 수 있어요.", "g": "작은 작업은 통째로 믿고 맡겨 보면(→신뢰) 큰 그림에 집중할 여유가 생겨요.", "c": "SDTC", "o": "SPTA"}, "SPTC": {"f": "artisan", "n": "즉흥 아티스트", "tag": "AI와 잼을 하듯, 주고받으며 만든다.", "r": 5.6, "tier": "드묾", "d": "완성된 계획 없이도 AI와 한 소절씩 주고받으며 작품을 키워 갑니다. 흐름과 영감이 먼저고, 길은 만들면서 찾죠. 즉흥의 리듬 속에서 예상 못 한 좋은 것이 튀어나옵니다.", "s": ["즉흥 발상력", "유연한 협업", "우연을 살리는 감각"], "sh": "흐름에 취해 마무리가 흐려질 수 있어요.", "g": "끝에 한 번 구조를 잡아 정리하면(→설계) 즉흥이 작품으로 남습니다.", "c": "BPVC", "o": "BDVA"}, "SPVC": {"f": "artisan", "n": "조각가", "tag": "거칠게 시작해, 함께 깎아 완성한다.", "r": 3.3, "tier": "희귀", "d": "일단 투박한 덩어리를 빠르게 던진 뒤, AI와 함께 깎고 다듬기를 반복하며 형상을 드러냅니다. 한 번에 완성하지 않고 깎아 가죠. 수정의 반복이 당신에겐 곧 창작의 과정입니다.", "s": ["반복 수정력", "디테일 감각", "끈질긴 완성 의지"], "sh": "다듬다 보면 끝을 못 내고 맴돌 수 있어요.", "g": "'이 정도면 됐다'는 기준을 미리 정하면(→위임) 완성이 빨라져요.", "c": "BPTC", "o": "BDTA"}, "BPTC": {"f": "artisan", "n": "작곡가", "tag": "구조를 먼저 짜고, AI와 합주한다.", "r": 4.3, "tier": "희귀", "d": "전체 구조와 흐름을 먼저 설계한 뒤, 그 위에서 AI와 합주하듯 빈칸을 채워 갑니다. 설계된 즉흥이라 할까요. 골격은 당신이, 채움은 함께 — 그래서 무너지지 않습니다.", "s": ["구조적 창작", "조율 능력", "설계와 즉흥의 균형"], "sh": "구조에 갇혀 즉흥의 묘미를 누르기도 해요.", "g": "가끔 한 마디는 통째로 맡겨 보면(→위임) 뜻밖의 선율이 옵니다.", "c": "SPVC", "o": "SDVA"}, "BPVC": {"f": "artisan", "n": "장인", "tag": "한 땀 한 땀, 함께 빚어 끝까지 간다.", "r": 4.2, "tier": "희귀", "d": "원하는 결과를 먼저 설계하고, AI와 한 단계씩 합을 맞춰, 매 단계 검증하며 완성도를 끌어올립니다. 빠름보다 완벽이죠. 당신의 결과물에는 시간과 손맛이 배어 있습니다.", "s": ["깊은 완성도", "꼼꼼한 협업", "타협 없는 기준"], "sh": "완벽주의가 일정과 체력을 갉을 수 있어요.", "g": "덜 중요한 단계는 빠르게 흘려보내면(→즉흥·신뢰) 핵심에 힘을 모읍니다.", "c": "SPTC", "o": "SDTA"}, "SPTA": {"f": "explore", "n": "스카우트", "tag": "빠르게 던져, 함께 탐색하며 길을 본다.", "r": 4.8, "tier": "희귀", "d": "질문을 빠르게 던지고 AI와 함께 이리저리 탐색하며 인사이트를 줍습니다. 정해진 경로보다 발 빠른 정찰이 특기죠. 남보다 먼저 지형을 훑고 '여기다' 싶은 곳을 찾아냅니다.", "s": ["빠른 탐색력", "발상의 민첩성", "기회 포착"], "sh": "빨리 훑다 깊이를 놓칠 수 있어요.", "g": "좋은 단서 하나는 끝까지 교차검증해 보면(→검증) 정찰이 발견이 됩니다.", "c": "BPVA", "o": "BDVC"}, "SPVA": {"f": "explore", "n": "탐정", "tag": "빠르게 묻되, 모든 단서를 교차검증한다.", "r": 4.3, "tier": "희귀", "d": "즉흥적으로 탐색하면서도 AI의 답을 곧이곧대로 믿지 않고 단서를 하나하나 대조합니다. 의심은 당신에겐 사고가 아니라 방법이죠. 그럴듯한 거짓을 가장 먼저 잡아내는 사람입니다.", "s": ["비판적 추적력", "교차검증 습관", "함정 감지"], "sh": "의심이 깊어 결론이 늦어질 수 있어요.", "g": "확실한 단계는 한 번 믿고 넘어가면(→신뢰) 추적에 속도가 붙어요.", "c": "BPTA", "o": "BDTC"}, "BPTA": {"f": "explore", "n": "지도제작자", "tag": "구조를 잡고, 함께 정리해 지형을 그린다.", "r": 5.4, "tier": "드묾", "d": "먼저 분석의 틀을 설계하고, AI와 함께 정보를 정리해 전체 지형을 한 장의 지도로 만듭니다. 흩어진 것을 체계로 묶는 사람이죠. 당신의 정리가 끝나면 모두가 길을 잃지 않습니다.", "s": ["체계적 정리력", "구조화 사고", "전체 조망"], "sh": "틀을 잡느라 시작이 늦어질 수 있어요.", "g": "가벼운 사안은 곧장 답을 받아 보면(→위임·즉흥) 지도가 빨리 완성돼요.", "c": "SPVA", "o": "SDVC"}, "BPVA": {"f": "explore", "n": "연구자", "tag": "설계하고, 함께 검증하며, 끝까지 따진다.", "r": 8.0, "tier": "보통", "d": "가설을 설계하고 AI와 단계적으로 협업하되, 매 단계 근거를 검증하며 결론에 다가갑니다. 네 축 모두에서 가장 엄밀한 탐구자죠. 당신의 결론에는 '왜 그런가'가 빠짐없이 붙어 있습니다.", "s": ["엄밀한 검증", "논리적 설계", "깊은 분석력"], "sh": "엄밀함이 지나치면 속도와 결단을 늦춰요.", "g": "초기 탐색은 빠르고 과감하게 던져 보면(→즉흥) 엄밀함이 더 빛나요.", "c": "SPTA", "o": "SDTC"}, "SDTA": {"f": "control", "n": "내비게이터", "tag": "빠르게 묻고 받아, 곧장 길을 정한다.", "r": 8.8, "tier": "보통", "d": "고민이 생기면 AI에 빠르게 맡겨 답을 받고, 그걸로 즉시 방향을 정합니다. 분석을 위한 분석이 아니라 결정을 위한 분석이죠. 당신이 있으면 회의가 길어지지 않습니다.", "s": ["빠른 의사결정", "실용적 판단", "추진하는 분석"], "sh": "빠른 결정이 검토를 앞지를 수 있어요.", "g": "중요한 갈림길에선 근거를 한 번 검증하면(→검증) 결정이 더 단단해져요.", "c": "BDVA", "o": "BPVC"}, "SDVA": {"f": "control", "n": "감사관", "tag": "빠르게 맡기되, 받은 답을 깐깐히 검증한다.", "r": 5.1, "tier": "드묾", "d": "분석은 과감하게 AI에 맡기지만, 돌아온 결과는 한 줄도 그냥 넘기지 않고 따져 봅니다. 빠른 위임과 엄격한 검증을 함께 쥐는 사람이죠. 당신이 통과시킨 숫자는 믿어도 됩니다.", "s": ["빠른 검증력", "오류 감지", "결과 신뢰성"], "sh": "전부 의심하다 피로가 쌓일 수 있어요.", "g": "검증 기준에 우선순위를 두면(→신뢰) 핵심에 에너지를 모을 수 있어요.", "c": "BDTA", "o": "BPTC"}, "BDTA": {"f": "control", "n": "전략가", "tag": "설계해 맡기고, 받은 분석으로 큰 그림을 그린다.", "r": 6.9, "tier": "드묾", "d": "분석의 틀을 먼저 설계해 AI에 맡기고, 돌아온 결과를 엮어 전략으로 빚습니다. 디테일보다 판세를 읽는 사람이죠. 당신의 손에서 흩어진 데이터가 한 수가 됩니다.", "s": ["전략적 사고", "큰 그림 설계", "위임을 통한 효율"], "sh": "큰 그림에 몰두해 근거 검증을 미룰 수 있어요.", "g": "핵심 가정 하나는 직접 검증해 보면(→검증) 전략이 흔들리지 않아요.", "c": "SDVA", "o": "SPVC"}, "BDVA": {"f": "control", "n": "관제사", "tag": "모든 것을 관제탑에서, 설계하고 검증하며 통제한다.", "r": 6.6, "tier": "드묾", "d": "먼저 체계를 설계하고, 실행은 AI에 맡기되, 모든 결과를 검증해 통제 아래 둡니다. 네 축에서 가장 신중하고 체계적인 사람이죠. 당신이 지키는 관제탑 아래에선 사고가 일어나지 않습니다.", "s": ["체계적 통제", "철저한 검증", "리스크 관리"], "sh": "통제가 과하면 유연성과 속도를 잃어요.", "g": "저위험 작업은 통째로 믿고 흘려보내면(→신뢰·즉흥) 관제에 여유가 생겨요.", "c": "SDTA", "o": "SPTC"}};
+const GUIDE = {"SDTC": "나는 '로켓' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SDVC": "나는 '쇼러너' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BDTC": "나는 '양산 설계자' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BDVC": "나는 '스튜디오 헤드' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SPTC": "나는 '즉흥 아티스트' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SPVC": "나는 '조각가' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BPTC": "나는 '작곡가' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BPVC": "나는 '장인' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 백지에서 새로 만들어 내는 작업이 많아. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SPTA": "나는 '스카우트' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SPVA": "나는 '탐정' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BPTA": "나는 '지도제작자' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BPVA": "나는 '연구자' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SDTA": "나는 '내비게이터' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "SDVA": "나는 '감사관' 스타일로 AI와 일하는 사람이야. 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬어 갈게. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BDTA": "나는 '전략가' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 답은 군더더기와 과한 면책 없이 빠르고 단정적으로 줘(대신 정확성은 지켜줘). 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘.", "BDVA": "나는 '관제사' 스타일로 AI와 일하는 사람이야. 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자. 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 나는 과정보다 결과를 먼저 본다. 사실·수치·인용에는 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘. 틀릴 수 있는 지점도 먼저 알려줘. 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 그 근거를 짚어줘 — 분석·판단이 내 주 용도야. 네가 할 수 있는 일 자체는 절대 줄이지 말고, '일하는 방식'과 '결과를 주는 형태'만 이 스타일에 맞춰줘."};
+const DIMS = [{"id": "understand", "name": "이해"}, {"id": "use", "name": "활용"}, {"id": "evaluate", "name": "평가"}, {"id": "create", "name": "창작"}, {"id": "ethics", "name": "윤리"}, {"id": "selfeff", "name": "자기효능"}];
+const GROUPS_R = {"studio": {"name": "스튜디오군", "emoji": "🎬", "color": "#FB923C", "tint": "#FFF3E8"}, "artisan": {"name": "장인군", "emoji": "🎨", "color": "#F43F84", "tint": "#FEECF3"}, "explore": {"name": "탐구군", "emoji": "🔭", "color": "#5566F0", "tint": "#ECEEFE"}, "control": {"name": "관제군", "emoji": "🛰", "color": "#10B981", "tint": "#E7F8F2"}};
+const GAPX = {"SDTC": {"dimId": "evaluate", "dimKo": "평가", "mechanism": ["당신은 아이디어가 떠오르면 곧장 AI에 맡기고, 완성된 결과를 받아 바로 씁니다. 남들이 고민할 때 이미 다음으로 넘어가 있죠. 다만 이 속도엔 짝꿍이 필요해요 — AI가 그럴듯하게 틀린 숫자 하나를 슬쩍 내놨을 때, 그걸 알아채는 건 결국 당신이거든요.", "정리하면 이렇습니다. 빠르게 던지고, 통째로 맡기고, 믿고 쓰는 로켓의 세 습관은 모두 '결과를 직접 들여다보는 단계'를 건너뜁니다. 그래서 보강할 곳은 딱 하나, 결과의 사실·수치·출처를 가려내는 평가 역량이에요. 이 눈이 받쳐주면 속도는 그대로 둔 채 신뢰도만 끌어올릴 수 있습니다 — 평가는 브레이크가 아니라 안전벨트예요."], "risks": ["AI가 지어낸 통계·인용을 검토 없이 보고서·발표에 그대로 넣는다", "그럴듯하게 작동하던 산출물이 예외·엣지케이스에서 조용히 틀린다", "속도가 우선이라 '한 번 더 확인'이 늘 뒤로 밀린다"], "synergy": "평가가 오르면 속도를 잃지 않으면서 '빠른데 틀리지 않는' 사람이 됩니다. 강점(속도)은 그대로, 마지막 검증 루틴 하나만 더하면 산출 신뢰도가 급상승합니다 — 평가는 브레이크가 아니라 안전벨트입니다.", "routines": ["사실·수치·인용에 '확신도(높음/중간/낮음)+출처'를 한 줄로 요구하기", "핵심 주장 3개만 1차 출처와 대조해 보기", "주 1회 'AI가 틀린 사례'를 한 건 기록하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ 네 습관 중 셋이 ‘평가’를 가리키죠. 그래서 평가가 1순위 보강 역량입니다."}}, "SDVC": {"dimId": "ethics", "dimKo": "윤리", "mechanism": ["당신은 제작을 과감히 AI에 맡겨 빠르게 찍어내되, 세상에 내보내는 마지막 컷은 꼭 직접 자릅니다. 다작과 품질을 동시에 쥐는 사람이죠. 그런데 많이 만들어 내보낼수록 따라오는 게 하나 있어요 — 그 결과물의 출처와 권리 문제입니다.", "쇼러너의 검수는 '품질'을 봅니다. 다만 빠뜨리기 쉬운 건 '책임' 쪽이에요. 남의 저작물을 닮지 않았는지, 민감한 정보가 섞이지 않았는지, 한쪽으로 치우치지 않았는지 — 이걸 챙기는 윤리 역량이 받쳐주면, 다작의 속도를 지키면서도 안심하고 내보낼 수 있습니다."], "risks": ["출처가 불분명한 생성물을 그대로 배포해 저작권 문제가 생긴다", "민감정보·개인정보를 무심코 입력한다", "편향된 표현·일반화가 검토 없이 결과에 통과된다"], "synergy": "윤리가 받쳐주면 '많이 만들되 안심하고 내보낼 수 있는' 산출이 됩니다. 생성의 강점을 지키면서, 저작권·편향 리스크만 미리 걸러내 신뢰를 더합니다.", "routines": ["생성물의 출처·저작권 리스크를 점검하기", "민감정보·개인정보를 입력하지 않았는지 점검하기", "편향이 생길 수 있는 표현을 표시해 달라고 요구하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ 특히 ‘새로 만드는 습관’이 ‘윤리’를 불러요 — 만드는 게 많을수록 저작권·편향 책임이 따라오니까요. 그래서 윤리가 1순위입니다."}}, "BDTC": {"dimId": "evaluate", "dimKo": "평가", "mechanism": ["당신은 한 번 틀과 템플릿을 짜두고, 그 위로 AI가 결과물을 끝없이 찍어내게 합니다. 일회성이 아니라 시스템을 만드는 사람이죠. 그런데 레일이 빠른 만큼, 그 위를 지나가는 결과물 하나가 틀리면 똑같이 천 번 틀립니다.", "정리하면, 틀을 짜서 통째로 맡기고 믿고 대량 생산하는 흐름엔 '나온 결과를 직접 확인하는 단계'가 거의 없습니다. 그래서 시스템의 안전판은 산출물의 품질을 가려내는 평가 역량이에요. 이 하나가 받쳐주면 양산 속도는 그대로 둔 채 불량률만 떨어뜨릴 수 있습니다."], "risks": ["AI가 지어낸 통계·인용을 검토 없이 보고서·발표에 그대로 넣는다", "그럴듯하게 작동하던 산출물이 예외·엣지케이스에서 조용히 틀린다", "속도가 우선이라 '한 번 더 확인'이 늘 뒤로 밀린다"], "synergy": "평가가 오르면 속도를 잃지 않으면서 '빠른데 틀리지 않는' 사람이 됩니다. 강점(속도)은 그대로, 마지막 검증 루틴 하나만 더하면 산출 신뢰도가 급상승합니다 — 평가는 브레이크가 아니라 안전벨트입니다.", "routines": ["사실·수치·인용에 '확신도(높음/중간/낮음)+출처'를 한 줄로 요구하기", "핵심 주장 3개만 1차 출처와 대조해 보기", "주 1회 'AI가 틀린 사례'를 한 건 기록하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ 통째로 맡기고 믿는 두 습관이 ‘평가’를 가리켜요. 시스템이 빠를수록 결과를 거르는 눈이 더 필요하죠. 그래서 평가가 1순위입니다."}}, "BDVC": {"dimId": "ethics", "dimKo": "윤리", "mechanism": ["당신은 원하는 그림을 먼저 설계하고, 제작은 AI에 맡기되, 나온 결과를 깐깐히 검수해 완성합니다. 한 편의 제작을 총괄하는 디렉터죠. 그런데 총괄해서 많이 만들어 낼수록, 품질만큼 중요해지는 게 '책임'입니다.", "스튜디오 헤드는 방향·생산·품질 세 키를 쥡니다. 거기에 하나만 더하면 좋아요 — 저작권·프라이버시·편향을 살피는 윤리 역량입니다. 규범이 자리 잡으면 대량 생산을 하면서도 스튜디오 전체가 사고 없이 돌아갑니다."], "risks": ["출처가 불분명한 생성물을 그대로 배포해 저작권 문제가 생긴다", "민감정보·개인정보를 무심코 입력한다", "편향된 표현·일반화가 검토 없이 결과에 통과된다"], "synergy": "윤리가 받쳐주면 '많이 만들되 안심하고 내보낼 수 있는' 산출이 됩니다. 생성의 강점을 지키면서, 저작권·편향 리스크만 미리 걸러내 신뢰를 더합니다.", "routines": ["생성물의 출처·저작권 리스크를 점검하기", "민감정보·개인정보를 입력하지 않았는지 점검하기", "편향이 생길 수 있는 표현을 표시해 달라고 요구하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ 총괄해서 많이 만들어 낼수록 ‘윤리’ 책임이 함께 커져요. 그래서 윤리가 1순위입니다."}}, "SPTC": {"dimId": "use", "dimKo": "활용", "mechanism": ["당신은 완성된 계획 없이도 AI와 한 소절씩 주고받으며 작품을 키웁니다. 흐름과 영감이 먼저고, 길은 만들면서 찾죠. 그런데 즉흥으로 던지는 한마디 한마디가, 사실은 결과를 크게 좌우합니다.", "같은 AI라도 어떻게 말을 거느냐에 따라 나오는 게 천차만별이에요. 즉흥으로 빠르게 주고받는 스타일일수록, 프롬프트를 다루는 활용 숙련이 곧 작품의 질이 됩니다. 이 감각이 늘면 같은 시간에 더 좋은 것이 나와요 — 즉흥의 강점이 곱절이 됩니다."], "risks": ["모호한 지시 탓에 같은 작업도 결과 편차가 크다", "결과가 어긋나면 같은 프롬프트만 반복하다 시간을 쓴다", "요구를 한 번에 몰아넣어 품질이 떨어진다"], "synergy": "활용 숙련이 오르면 같은 시간에 더 나은 결과가 나옵니다 — 생산성에 직결되며, 빠른 스타일의 강점이 곱절로 커집니다.", "routines": ["목표·청중·제약·출력형식을 명시해 프롬프트를 다시 써 보기", "few-shot 예시 2개를 넣고 빼서 결과를 비교하기", "한 작업을 작은 단계로 쪼개 순서대로 요청하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ ‘빠르게 던지는 습관’이 ‘활용’의 바탕을 키워줘요. 거기서 한 걸음 더, 프롬프트를 정교하게 다루면 같은 시간에 더 좋은 결과가 나옵니다. 그래서 활용이 1순위입니다."}}, "SPVC": {"dimId": "use", "dimKo": "활용", "mechanism": ["당신은 투박한 덩어리를 일단 던진 뒤, AI와 함께 깎고 다듬기를 반복하며 형상을 드러냅니다. 한 번에 완성하지 않고 깎아 가죠. 그 '다듬는 과정' 하나하나가 결국 프롬프트를 주고받는 일입니다.", "조각가의 무기는 반복 수정이에요. 그런데 그 수정을 얼마나 정확히 요청하느냐 — 즉 프롬프트 활용 숙련 — 가 완성까지 걸리는 시간을 좌우합니다. 다루는 솜씨가 늘면 같은 횟수로 더 정교하게 깎을 수 있어요."], "risks": ["모호한 지시 탓에 같은 작업도 결과 편차가 크다", "결과가 어긋나면 같은 프롬프트만 반복하다 시간을 쓴다", "요구를 한 번에 몰아넣어 품질이 떨어진다"], "synergy": "활용 숙련이 오르면 같은 시간에 더 나은 결과가 나옵니다 — 생산성에 직결되며, 빠른 스타일의 강점이 곱절로 커집니다.", "routines": ["목표·청중·제약·출력형식을 명시해 프롬프트를 다시 써 보기", "few-shot 예시 2개를 넣고 빼서 결과를 비교하기", "한 작업을 작은 단계로 쪼개 순서대로 요청하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ ‘빠르게 던지는 습관’이 ‘활용’의 바탕을 키워줘요. 프롬프트를 더 정교하게 다룰수록 깎는 횟수가 줄고 완성이 빨라집니다. 그래서 활용이 1순위입니다."}}, "BPTC": {"dimId": "understand", "dimKo": "이해", "mechanism": ["당신은 전체 구조와 흐름을 먼저 설계한 뒤, 그 위에서 AI와 합주하듯 빈칸을 채워 갑니다. 골격은 직접, 채움은 함께 — 그래서 무너지지 않죠. 그런데 좋은 골격을 짜려면, 함께 연주할 악기를 잘 알아야 합니다.", "AI가 어떤 원리로 답을 만들고 어디서 약한지를 알수록, 당신의 설계는 더 정교해집니다. 작동 방식을 이해하면 '여긴 믿고 맡기고, 여긴 직접 챙기자'를 스스로 판단할 수 있어요 — 설계가 한층 단단해집니다."], "risks": ["환각을 '성능이 낮아서'로 오해해 잘못 대응한다", "파인튜닝·프롬프트·RAG를 혼동해 엉뚱한 해법을 고른다", "모델의 한계를 예측 못해 위험한 작업까지 위임한다"], "synergy": "작동 원리를 알면 '언제 믿고 언제 검증할지'를 스스로 판단할 수 있습니다. 한계를 예측해 더 안전하고 정교하게 위임·설계하게 됩니다.", "routines": ["'환각이 왜 생기는지'를 한 문단으로 직접 설명해 보기", "같은 질문을 맥락만 바꿔 던지고 결과 차이를 관찰하기", "RAG·파인튜닝·프롬프트의 차이를 내 업무 예시로 정리하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ 겉으론 안 드러나지만, 좋은 구조를 짜려면 ‘AI가 왜 그렇게 답하는지’(이해)를 알아야 해요. 그래서 이해가 1순위입니다."}}, "BPVC": {"dimId": "create", "dimKo": "창작", "mechanism": ["당신은 원하는 결과를 먼저 설계하고, AI와 한 단계씩 합을 맞춰, 매 단계 검증하며 완성도를 끝까지 끌어올립니다. 빠름보다 완벽이죠. 그 깊이는 이미 누구보다 단단해요. 다만 늘 같은 길로 깊게 파는 편이긴 합니다.", "한 우물을 깊게 파는 데는 강하지만, 백지에서 다른 형식·다른 갈래를 펼쳐 보는 발산은 덜 연습됩니다. 새것을 여럿 만들어 보는 창작 역량을 더하면, 깊이에 넓이가 더해져 만들 수 있는 폭이 크게 늘어요."], "risks": ["백지에서 새로 시작해야 하는 작업에서 막힌다", "기존 틀을 변주하는 데 그치고 발산이 적다", "'검토·비교'는 잘하지만 '제안·생성'에서 손이 느리다"], "synergy": "창작을 더하면 '따지는 힘'이 '만드는 힘'으로 확장됩니다 — 검증된 새것을 만드는 희소한 사람이 됩니다.", "routines": ["백지에서 접근이 다른 컨셉 3개를 빠르게 생성하기", "개요(구조)부터 설계한 뒤 채워 완성하기", "제약을 일부러 하나 걸고 변주를 만들어 보기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**새로 만드는 습관**은 ‘창작’력을 키우지만, 그만큼 ‘윤리’(저작권·편향) 책임이 따라와요."], "concl": "→ ‘새로 만드는 습관’을 이미 쓰지만, 늘 같은 길로 깊게 파는 편이에요. 백지에서 다른 갈래를 펼치는 발산을 더하면 만들 수 있는 폭이 넓어집니다. 그래서 창작이 1순위입니다."}}, "SPTA": {"dimId": "use", "dimKo": "활용", "mechanism": ["당신은 질문을 빠르게 던지고 AI와 함께 이리저리 탐색하며 인사이트를 줍습니다. 정해진 경로보다 발 빠른 정찰이 특기죠. 그런데 같은 곳을 훑어도, 어떻게 묻느냐에 따라 건지는 게 다릅니다.", "빠르게 훑는 만큼, 프롬프트를 잘 다루면 탐색의 효율과 깊이가 함께 올라갑니다. 활용 숙련이 받쳐주면 남들이 놓친 단서까지 같은 시간에 집어낼 수 있어요 — 정찰이 발견이 됩니다."], "risks": ["모호한 지시 탓에 같은 작업도 결과 편차가 크다", "결과가 어긋나면 같은 프롬프트만 반복하다 시간을 쓴다", "요구를 한 번에 몰아넣어 품질이 떨어진다"], "synergy": "활용 숙련이 오르면 같은 시간에 더 나은 결과가 나옵니다 — 생산성에 직결되며, 빠른 스타일의 강점이 곱절로 커집니다.", "routines": ["목표·청중·제약·출력형식을 명시해 프롬프트를 다시 써 보기", "few-shot 예시 2개를 넣고 빼서 결과를 비교하기", "한 작업을 작은 단계로 쪼개 순서대로 요청하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ ‘빠르게 던지는 습관’이 ‘활용’의 바탕을 키워줘요. 프롬프트를 정교하게 다루면 같은 시간에 더 깊이 탐색할 수 있죠. 그래서 활용이 1순위입니다."}}, "SPVA": {"dimId": "evaluate", "dimKo": "평가", "mechanism": ["당신은 즉흥적으로 탐색하면서도 AI의 답을 곧이곧대로 믿지 않고, 단서를 하나하나 대조합니다. 의심은 당신에겐 방법이죠. 이미 잘 의심하는 사람이라, 한 걸음만 더 가면 됩니다.", "'의심하는 습관'과 '진위·편향을 체계적으로 가려내는 힘'은 살짝 다릅니다. 그 촉을, 무엇을 어떤 기준으로 판별할지 아는 평가 역량으로 끌어올리면, 추적의 속도를 잃지 않으면서 정확도가 무기가 됩니다."], "risks": ["AI가 지어낸 통계·인용을 검토 없이 보고서·발표에 그대로 넣는다", "그럴듯하게 작동하던 산출물이 예외·엣지케이스에서 조용히 틀린다", "속도가 우선이라 '한 번 더 확인'이 늘 뒤로 밀린다"], "synergy": "평가가 오르면 속도를 잃지 않으면서 '빠른데 틀리지 않는' 사람이 됩니다. 강점(속도)은 그대로, 마지막 검증 루틴 하나만 더하면 산출 신뢰도가 급상승합니다 — 평가는 브레이크가 아니라 안전벨트입니다.", "routines": ["사실·수치·인용에 '확신도(높음/중간/낮음)+출처'를 한 줄로 요구하기", "핵심 주장 3개만 1차 출처와 대조해 보기", "주 1회 'AI가 틀린 사례'를 한 건 기록하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 검증하는 습관 덕에 ‘평가’의 바탕은 이미 좋아요. 거기서 한 걸음 더, ‘무엇을 어떤 기준으로 판별할지’ 아는 힘으로 끌어올리면 평가가 가장 큰 무기가 됩니다. 그래서 평가가 1순위입니다."}}, "BPTA": {"dimId": "understand", "dimKo": "이해", "mechanism": ["당신은 먼저 분석의 틀을 설계하고, AI와 함께 정보를 정리해 전체 지형을 한 장의 지도로 만듭니다. 흩어진 것을 체계로 묶는 사람이죠. 좋은 지도를 그리려면, 그리는 도구의 성질을 알아야 합니다.", "AI가 어떻게 정보를 다루고 어디서 틀리는지를 이해할수록, 당신의 분석은 더 정확해집니다. 작동 원리를 알면 결과를 어디까지 믿어도 되는지 가늠이 서고, 지도의 빈틈과 왜곡을 미리 잡아낼 수 있어요."], "risks": ["환각을 '성능이 낮아서'로 오해해 잘못 대응한다", "파인튜닝·프롬프트·RAG를 혼동해 엉뚱한 해법을 고른다", "모델의 한계를 예측 못해 위험한 작업까지 위임한다"], "synergy": "작동 원리를 알면 '언제 믿고 언제 검증할지'를 스스로 판단할 수 있습니다. 한계를 예측해 더 안전하고 정교하게 위임·설계하게 됩니다.", "routines": ["'환각이 왜 생기는지'를 한 문단으로 직접 설명해 보기", "같은 질문을 맥락만 바꿔 던지고 결과 차이를 관찰하기", "RAG·파인튜닝·프롬프트의 차이를 내 업무 예시로 정리하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 정확한 지도를 그리려면 그리는 도구의 성질, 즉 ‘AI가 어떻게 답하고 어디서 틀리는지’(이해)를 알아야 해요. 그래서 이해가 1순위입니다."}}, "BPVA": {"dimId": "create", "dimKo": "창작", "mechanism": ["당신은 가설을 세우고 AI와 단계적으로 협업하되, 매 단계 근거를 검증하며 결론에 다가갑니다. 누구보다 엄밀한 사람이죠. 따지는 힘은 이미 최고예요. 다만 그 힘이 '만드는 쪽'으로도 흐르면 좋습니다.", "검증과 분석엔 강하지만, 백지에서 새것을 펼쳐 보는 연습은 상대적으로 적습니다. 다른 갈래를 여럿 만들어 보는 창작 역량을 더하면, '따지는 힘'이 '만드는 힘'으로 확장돼요 — 검증된 새것을 내놓는 드문 사람이 됩니다."], "risks": ["백지에서 새로 시작해야 하는 작업에서 막힌다", "기존 틀을 변주하는 데 그치고 발산이 적다", "'검토·비교'는 잘하지만 '제안·생성'에서 손이 느리다"], "synergy": "창작을 더하면 '따지는 힘'이 '만드는 힘'으로 확장됩니다 — 검증된 새것을 만드는 희소한 사람이 됩니다.", "routines": ["백지에서 접근이 다른 컨셉 3개를 빠르게 생성하기", "개요(구조)부터 설계한 뒤 채워 완성하기", "제약을 일부러 하나 걸고 변주를 만들어 보기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**단계마다 함께하는 습관**은 단계마다 들여다보니 ‘평가’와 ‘이해’가 자연히 자라요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 검증·분석 쪽은 습관이 알아서 키워줘요. 특히 ‘분석·정리하는 습관’은 새로 만드는 연습을 줄이죠. 상대적으로 덜 쓰는 ‘창작’을 더하면 폭이 넓어집니다. 그래서 창작이 1순위입니다."}}, "SDTA": {"dimId": "evaluate", "dimKo": "평가", "mechanism": ["당신은 고민이 생기면 AI에 빠르게 맡겨 답을 받고, 그걸로 즉시 방향을 정합니다. 회의를 길게 끌지 않는 사람이죠. 그런데 빠른 결정일수록, 그 결정이 딛고 선 답이 맞는지가 중요해집니다.", "빠르게 맡기고 믿고 그걸로 결정하는 흐름엔 '근거를 되짚는 단계'가 끼어들 틈이 적어요. 그래서 결정의 안전판은 받은 답의 사실과 근거를 가려내는 평가 역량입니다. 이 하나가 받쳐주면 빠른 결정의 강점은 그대로, 헛디딜 확률만 줄어듭니다."], "risks": ["AI가 지어낸 통계·인용을 검토 없이 보고서·발표에 그대로 넣는다", "그럴듯하게 작동하던 산출물이 예외·엣지케이스에서 조용히 틀린다", "속도가 우선이라 '한 번 더 확인'이 늘 뒤로 밀린다"], "synergy": "평가가 오르면 속도를 잃지 않으면서 '빠른데 틀리지 않는' 사람이 됩니다. 강점(속도)은 그대로, 마지막 검증 루틴 하나만 더하면 산출 신뢰도가 급상승합니다 — 평가는 브레이크가 아니라 안전벨트입니다.", "routines": ["사실·수치·인용에 '확신도(높음/중간/낮음)+출처'를 한 줄로 요구하기", "핵심 주장 3개만 1차 출처와 대조해 보기", "주 1회 'AI가 틀린 사례'를 한 건 기록하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 빠르게 던지고·맡기고·믿는 습관이 모두 ‘평가’를 가리켜요. 결정이 빠를수록 근거를 거르는 눈이 받쳐줘야죠. 그래서 평가가 1순위입니다."}}, "SDVA": {"dimId": "use", "dimKo": "활용", "mechanism": ["당신은 분석은 과감히 AI에 맡기되, 돌아온 결과는 한 줄도 그냥 넘기지 않고 따져 봅니다. 빠른 위임과 엄격한 검증을 함께 쥐는 사람이죠. 그 검증의 속도와 범위도, 사실 어떻게 시키느냐에 달려 있습니다.", "감사관은 빠르게 맡기고 깐깐히 거르는 게 강점이에요. 여기에 프롬프트 활용 숙련을 더하면, 같은 시간에 더 넓게·더 빠르게 검증할 수 있습니다. 다루는 솜씨가 검증의 손을 늘려주는 셈이죠."], "risks": ["모호한 지시 탓에 같은 작업도 결과 편차가 크다", "결과가 어긋나면 같은 프롬프트만 반복하다 시간을 쓴다", "요구를 한 번에 몰아넣어 품질이 떨어진다"], "synergy": "활용 숙련이 오르면 같은 시간에 더 나은 결과가 나옵니다 — 생산성에 직결되며, 빠른 스타일의 강점이 곱절로 커집니다.", "routines": ["목표·청중·제약·출력형식을 명시해 프롬프트를 다시 써 보기", "few-shot 예시 2개를 넣고 빼서 결과를 비교하기", "한 작업을 작은 단계로 쪼개 순서대로 요청하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**빠르게 던지는 습관**은 프롬프트 ‘활용’ 감각을 키우지만, 결과를 가려보는 ‘평가’는 놓치기 쉬워요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 빠르게 다루는 습관이 ‘활용’의 바탕이 돼요. 프롬프트를 더 정교하게 다루면 같은 시간에 더 넓게 검증할 수 있죠. 그래서 활용이 1순위입니다."}}, "BDTA": {"dimId": "evaluate", "dimKo": "평가", "mechanism": ["당신은 분석의 틀을 먼저 설계해 AI에 맡기고, 돌아온 결과를 엮어 전략으로 빚습니다. 디테일보다 판세를 읽는 사람이죠. 그런데 큰 그림일수록, 그 그림이 깔고 있는 가정 하나가 어긋나면 전체가 흔들립니다.", "틀을 짜서 맡기고 받은 분석으로 큰 그림을 그리다 보면, 핵심 가정을 직접 검증하는 단계가 뒤로 밀리기 쉬워요. 그 가정을 가려내는 평가 역량이 받쳐주면, 전략의 스케일은 그대로 둔 채 토대만 단단해집니다."], "risks": ["AI가 지어낸 통계·인용을 검토 없이 보고서·발표에 그대로 넣는다", "그럴듯하게 작동하던 산출물이 예외·엣지케이스에서 조용히 틀린다", "속도가 우선이라 '한 번 더 확인'이 늘 뒤로 밀린다"], "synergy": "평가가 오르면 속도를 잃지 않으면서 '빠른데 틀리지 않는' 사람이 됩니다. 강점(속도)은 그대로, 마지막 검증 루틴 하나만 더하면 산출 신뢰도가 급상승합니다 — 평가는 브레이크가 아니라 안전벨트입니다.", "routines": ["사실·수치·인용에 '확신도(높음/중간/낮음)+출처'를 한 줄로 요구하기", "핵심 주장 3개만 1차 출처와 대조해 보기", "주 1회 'AI가 틀린 사례'를 한 건 기록하기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**믿고 쓰는 습관**은 틀린 것도 통과시키기 쉬워 ‘평가’와 ‘윤리’(책임 점검)를 건너뛰기 쉬워요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 맡기고 믿는 습관이 ‘평가’를 가리켜요. 큰 그림일수록 깔려 있는 가정을 거르는 눈이 필요하죠. 그래서 평가가 1순위입니다."}}, "BDVA": {"dimId": "create", "dimKo": "창작", "mechanism": ["당신은 먼저 체계를 설계하고, 실행은 AI에 맡기되, 모든 결과를 검증해 통제 아래 둡니다. 가장 신중하고 체계적인 사람이죠. 통제와 검증은 이미 완벽에 가까워요. 다만 가끔은 '풀어주는 힘'도 필요합니다.", "지키고 거르는 데는 최고지만, 백지에서 새 길을 내는 발산은 상대적으로 덜 쓰입니다. 다른 갈래를 만들어 보는 창작 역량을 더하면, 체계의 단단함은 지키면서 유연함이 생겨요 — 관제탑이 더 넓은 그림을 그릴 수 있습니다."], "risks": ["백지에서 새로 시작해야 하는 작업에서 막힌다", "기존 틀을 변주하는 데 그치고 발산이 적다", "'검토·비교'는 잘하지만 '제안·생성'에서 손이 느리다"], "synergy": "창작을 더하면 '따지는 힘'이 '만드는 힘'으로 확장됩니다 — 검증된 새것을 만드는 희소한 사람이 됩니다.", "routines": ["백지에서 접근이 다른 컨셉 3개를 빠르게 생성하기", "개요(구조)부터 설계한 뒤 채워 완성하기", "제약을 일부러 하나 걸고 변주를 만들어 보기"], "interaction2": {"intro": "당신의 네 습관이 각각 어떤 역량을 키우고, 어떤 역량을 놓치기 쉽게 하는지예요.", "lines": ["**틀을 먼저 짜는 습관**은 구조를 먼저 잡는 만큼 ‘창작’과 ‘이해’(원리 파악)를 키워줘요.", "**통째로 맡기는 습관**은 결과를 직접 확인하는 ‘평가’와 원리를 파악하는 ‘이해’를 소홀하게 만들 수 있어요.", "**꼼꼼히 검증하는 습관**은 결과를 따져보는 만큼 ‘평가’의 바탕을 키워줘요.", "**분석·정리하는 습관**은 비교·판단이 ‘평가’를 키워주지만, 새로 만드는 ‘창작’ 연습은 덜 하게 돼요."], "concl": "→ 검증·분석 쪽은 습관이 알아서 키워줘요. 특히 ‘분석·정리하는 습관’은 새로 만드는 연습을 줄이죠. 덜 쓰는 ‘창작’을 더하면 체계에 유연함이 생깁니다. 그래서 창작이 1순위입니다."}}};
+const TUNE = {"SDTC": {"prompt": "[나는] 나는 '로켓' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 통째로 맡기고, 믿고 수용하고, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(평가) 보강]   ★유료\n· 사실·통계·인용·날짜엔 '확신도(높음/중간/낮음)+근거'를 한 줄로 달아줘.\n· 가장 검증이 필요한 3가지를 따로 짚어줘 — 내가 그것만 확인하면 되게.\n· 그럴듯하지만 틀릴 수 있는 지점은 먼저 경고해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "SDVC": {"prompt": "[나는] 나는 '쇼러너' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 통째로 맡기고, 검증하며, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(윤리) 보강]   ★유료\n· 산출물에서 저작권·프라이버시·편향 측면의 주의 지점을 표시해줘.\n· 위험이 있으면 안전하게 쓰는 대안을 함께 제안해줘.\n· 민감정보가 들어갔다면 먼저 알려줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "BDTC": {"prompt": "[나는] 나는 '양산 설계자' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 통째로 맡기고, 믿고 수용하고, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(평가) 보강]   ★유료\n· 사실·통계·인용·날짜엔 '확신도(높음/중간/낮음)+근거'를 한 줄로 달아줘.\n· 가장 검증이 필요한 3가지를 따로 짚어줘 — 내가 그것만 확인하면 되게.\n· 그럴듯하지만 틀릴 수 있는 지점은 먼저 경고해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "BDVC": {"prompt": "[나는] 나는 '스튜디오 헤드' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 통째로 맡기고, 검증하며, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(윤리) 보강]   ★유료\n· 산출물에서 저작권·프라이버시·편향 측면의 주의 지점을 표시해줘.\n· 위험이 있으면 안전하게 쓰는 대안을 함께 제안해줘.\n· 민감정보가 들어갔다면 먼저 알려줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "SPTC": {"prompt": "[나는] 나는 '즉흥 아티스트' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 단계마다 함께하고, 믿고 수용하고, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(활용) 보강]   ★유료\n· 더 나은 결과를 위해 내 지시에서 빠진 요소(목표·청중·제약·형식)를 먼저 지적해줘.\n· 효과적으로 다시 쓴 프롬프트 버전도 함께 제안해줘.\n· 긴 작업은 작은 단계로 쪼개 순서대로 진행해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "SPVC": {"prompt": "[나는] 나는 '조각가' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 단계마다 함께하고, 검증하며, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(활용) 보강]   ★유료\n· 더 나은 결과를 위해 내 지시에서 빠진 요소(목표·청중·제약·형식)를 먼저 지적해줘.\n· 효과적으로 다시 쓴 프롬프트 버전도 함께 제안해줘.\n· 긴 작업은 작은 단계로 쪼개 순서대로 진행해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "BPTC": {"prompt": "[나는] 나는 '작곡가' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 단계마다 함께하고, 믿고 수용하고, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(이해) 보강]   ★유료\n· 핵심 개념엔 '왜 그렇게 동작하는지' 한 줄 원리를 붙여줘.\n· 네가 이 답을 어떻게 만들었는지(가정·한계)도 간단히 밝혀줘.\n· 이 작업에 프롬프트로 될 일과 안 될 일을 구분해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "BPVC": {"prompt": "[나는] 나는 '장인' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 단계마다 함께하고, 검증하며, 새로 만드는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 정석을 넘어 새롭고 창의적인 안까지 함께 제안해줘 — 새로 만들어 내는 작업이 많아.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(창작) 보강]   ★유료\n· 정답 하나가 아니라 접근이 다른 안 2~3개를 제시하고, 각각의 강점·적합 상황을 한 줄로.\n· 먼저 구조(개요)를 제안한 뒤 채워줘.\n· 막히면 제약을 바꾼 변주도 보여줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "SPTA": {"prompt": "[나는] 나는 '스카우트' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 단계마다 함께하고, 믿고 수용하고, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(활용) 보강]   ★유료\n· 더 나은 결과를 위해 내 지시에서 빠진 요소(목표·청중·제약·형식)를 먼저 지적해줘.\n· 효과적으로 다시 쓴 프롬프트 버전도 함께 제안해줘.\n· 긴 작업은 작은 단계로 쪼개 순서대로 진행해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "SPVA": {"prompt": "[나는] 나는 '탐정' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 단계마다 함께하고, 검증하며, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(평가) 보강]   ★유료\n· 사실·통계·인용·날짜엔 '확신도(높음/중간/낮음)+근거'를 한 줄로 달아줘.\n· 가장 검증이 필요한 3가지를 따로 짚어줘 — 내가 그것만 확인하면 되게.\n· 그럴듯하지만 틀릴 수 있는 지점은 먼저 경고해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "BPTA": {"prompt": "[나는] 나는 '지도제작자' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 단계마다 함께하고, 믿고 수용하고, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(이해) 보강]   ★유료\n· 핵심 개념엔 '왜 그렇게 동작하는지' 한 줄 원리를 붙여줘.\n· 네가 이 답을 어떻게 만들었는지(가정·한계)도 간단히 밝혀줘.\n· 이 작업에 프롬프트로 될 일과 안 될 일을 구분해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "BPVA": {"prompt": "[나는] 나는 '연구자' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 단계마다 함께하고, 검증하며, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 한 번에 끝내지 말고 한 단계씩 제안해줘. 내가 보고 승인·수정하며 함께 완성할게.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(창작) 보강]   ★유료\n· 정답 하나가 아니라 접근이 다른 안 2~3개를 제시하고, 각각의 강점·적합 상황을 한 줄로.\n· 먼저 구조(개요)를 제안한 뒤 채워줘.\n· 막히면 제약을 바꾼 변주도 보여줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "SDTA": {"prompt": "[나는] 나는 '내비게이터' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 통째로 맡기고, 믿고 수용하고, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(평가) 보강]   ★유료\n· 사실·통계·인용·날짜엔 '확신도(높음/중간/낮음)+근거'를 한 줄로 달아줘.\n· 가장 검증이 필요한 3가지를 따로 짚어줘 — 내가 그것만 확인하면 되게.\n· 그럴듯하지만 틀릴 수 있는 지점은 먼저 경고해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "SDVA": {"prompt": "[나는] 나는 '감사관' 스타일로 AI와 일하는 사람이야 — 빠르게 던지고, 통째로 맡기고, 검증하며, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 완벽한 지시를 기다리지 말고 일단 초안을 빠르게 만들어 보여줘 — 보고 나서 함께 다듬을게.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(활용) 보강]   ★유료\n· 더 나은 결과를 위해 내 지시에서 빠진 요소(목표·청중·제약·형식)를 먼저 지적해줘.\n· 효과적으로 다시 쓴 프롬프트 버전도 함께 제안해줘.\n· 긴 작업은 작은 단계로 쪼개 순서대로 진행해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}, "BDTA": {"prompt": "[나는] 나는 '전략가' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 통째로 맡기고, 믿고 수용하고, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 답은 군더더기·과한 면책 없이 빠르고 단정적으로 줘. (정확성은 지켜줘)\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(평가) 보강]   ★유료\n· 사실·통계·인용·날짜엔 '확신도(높음/중간/낮음)+근거'를 한 줄로 달아줘.\n· 가장 검증이 필요한 3가지를 따로 짚어줘 — 내가 그것만 확인하면 되게.\n· 그럴듯하지만 틀릴 수 있는 지점은 먼저 경고해줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Efficient(효율)", "claude": "Concise(간결)"}}, "BDVA": {"prompt": "[나는] 나는 '관제사' 스타일로 AI와 일하는 사람이야 — 설계부터 하고, 통째로 맡기고, 검증하며, 분석하는 걸 좋아해.\n\n[일하는 방식]\n· 작업 전에 목표·제약·형식을 먼저 정리해 구조를 잡고, 그 계획을 한 번 확인시켜 준 뒤 시작하자.\n· 자잘한 결정은 네가 알아서 진행해 완성된 결과부터 보여줘 — 과정보다 결과를 먼저 본다.\n· 복잡한 정보는 핵심만 구조적으로 정리하고, 비교·평가해 결론과 근거를 짚어줘.\n\n[결과 형태]\n· 사실·수치·인용엔 근거를 달고, 불확실한 곳은 신뢰도(높음/중간/낮음)로 표시해줘.\n· 끝에 '한 줄 요약'을 붙여줘 — 바로 쓰거나 공유할 수 있게.\n\n[검증 장치 — 내 약점(창작) 보강]   ★유료\n· 정답 하나가 아니라 접근이 다른 안 2~3개를 제시하고, 각각의 강점·적합 상황을 한 줄로.\n· 먼저 구조(개요)를 제안한 뒤 채워줘.\n· 막히면 제약을 바꾼 변주도 보여줘.\n\n[공통] 네 능력 자체는 절대 줄이지 말고, '일하는 방식'과 '결과 형태'만 이 스타일에 맞춰줘.", "preset": {"chatgpt": "Professional(전문) 또는 Candid(직설)", "claude": "Explanatory(설명형) 또는 검증용 커스텀 스타일"}}};
+const COMP = [{"id": "UN01", "dim": "understand", "kind": "mc", "stem": "생성형 AI의 '환각(hallucination)'에 가장 가까운 설명은?", "opts": [["A", "서버에 부하가 걸려 응답 속도가 느려지는 현상"], ["B", "사실이 아닌 내용을 그럴듯하고 단정적으로 서술하는 출력"], ["C", "질문의 의도를 이해하지 못해 답변을 거부하는 것"], ["D", "같은 질문에도 매번 답이 달라지는 무작위성 탓"]]}, {"id": "UN02", "dim": "understand", "kind": "mc", "stem": "대규모 언어모델(LLM)이 답을 만들어내는 기본 방식에 가장 가까운 것은?", "opts": [["A", "거대한 정답 데이터베이스에서 가장 맞는 항목을 검색해 꺼낸다"], ["B", "질문을 인터넷에 실시간 검색해 결과를 정리한다"], ["C", "맥락을 바탕으로 다음에 올 말을 확률적으로 이어 생성한다"], ["D", "사람이 미리 작성한 답변 대본을 골라 보여준다"]]}, {"id": "UN03", "dim": "understand", "kind": "mc", "stem": "AI에게 긴 문서를 주고 요약시킬 때, 문서가 일정 길이를 넘으면 일부 내용이 반영되지 않을 수 있다. 이와 가장 관련 깊은 개념은?", "opts": [["A", "모델이 사실을 그럴듯하게 지어내는 환각"], ["B", "입력 한계(맥락 창)를 넘었기 때문"], ["C", "학습 데이터에 내재한 사회적 편향 탓"], ["D", "요청이 몰릴 때의 응답 속도 제한 탓"]]}, {"id": "UN04", "dim": "understand", "kind": "mc", "stem": "LLM이 '2년 전 폐지된 제도'를 아직 시행 중인 것처럼 답했다. 가장 근본적인 원인은?", "opts": [["A", "한국어 학습 데이터가 상대적으로 부족하기 때문"], ["B", "질문이 너무 짧아 맥락이 부족했기 때문이다"], ["C", "학습 시점 이후의 변화를 본질적으로 알지 못하기 때문"], ["D", "답변이 길어질수록 정확도가 떨어지기 때문"]]}, {"id": "UN05", "dim": "understand", "kind": "mc", "stem": "'같은 질문인데 어제와 오늘 답이 다르다'는 불평이 있다. 이를 가장 잘 설명하는 것은?", "opts": [["A", "모델이 사용자를 기억해 의도적으로 답을 바꿨기 때문"], ["B", "모델이 사용자를 기억해 일부러 바꾼 것"], ["C", "생성에 내재한 확률적 변동성 때문"], ["D", "참고하는 인터넷 정보가 바뀐 것"]]}, {"id": "US01", "dim": "use", "kind": "mc", "stem": "프롬프트에 '예시'를 한두 개 넣어 원하는 형식을 보여주는 기법을 무엇이라 하나?", "opts": [["A", "모델 자체를 추가 데이터로 다시 학습시키는 파인튜닝"], ["B", "틀린 출력을 줄이려는 환각 억제 기법"], ["C", "입력을 줄여 비용을 아끼는 토큰 압축 기법"], ["D", "퓨샷(few-shot) 프롬프팅"]]}, {"id": "US02", "dim": "use", "kind": "mc", "stem": "'신제품 출시 보도자료 초안'이 필요하다. 가장 좋은 결과를 낼 프롬프트는?", "opts": [["A", "대상 독자·핵심 메시지·톤·분량·포함 정보를 명시해 요청한다"], ["B", "'보도자료 써줘'라고만 입력한다"], ["C", "떠오르는 제약을 길게 나열하고 수정하지 않는다"], ["D", "비슷한 자료 10개를 붙여넣고 '이것처럼'이라고만 한다"]]}, {"id": "US03", "dim": "use", "kind": "mc", "stem": "AI 답이 원하는 방향과 조금 어긋난다. 가장 효과적인 다음 행동은?", "opts": [["A", "처음부터 완전히 새 대화를 시작한다"], ["B", "같은 프롬프트를 그대로 다시 보낸다"], ["C", "무엇이 어긋났는지 짚어 수정을 이어간다"], ["D", "더 강한 말투로 '제대로 하라'고 다그친다"]]}, {"id": "US04", "dim": "use", "kind": "mc", "stem": "여러 단계의 추론이 필요한 문제(예: 조건이 얽힌 계산)에서 정확도를 가장 높이는 기법은?", "opts": [["A", "'확실하지 않으면 답하지 말라'는 지시만 덧붙인다"], ["B", "'모르면 답하지 말라'고만 덧붙인다"], ["C", "'반드시 정확히 하라'고 강조한다"], ["D", "단계별로 풀이 과정을 드러내게 한다"]]}, {"id": "US05", "dim": "use", "kind": "mc", "stem": "다음 중 '프롬프트 개선으로 해결되지 않는' 한계에 가장 가까운 것은?", "opts": [["A", "학습 시점 이후의 최신 사실을 모델이 모르는 한계"], ["B", "출력 형식이 매번 들쭉날쭉하게 나오는 것"], ["C", "답변이 불필요하게 장황하게 나오는 것"], ["D", "원하는 말투(톤)가 잘 반영되지 않는 문제"]]}, {"id": "EV01", "dim": "evaluate", "kind": "mc", "stem": "AI가 인용한 통계가 의심스럽다. 가장 먼저 할 검증 행동은?", "opts": [["A", "같은 AI에게 '맞아?'라고 되묻는다"], ["B", "같은 AI에게 '맞아?'라고 다시 물어 확인한다"], ["C", "다른 AI에게도 물어 답이 같으면 신뢰한다"], ["D", "원 출처를 직접 찾아 1차 자료로 교차확인한다"]]}, {"id": "EV02", "dim": "evaluate", "kind": "mc", "stem": "두 AI 답변 중 더 신뢰할 수 있는 쪽을 고르는 '가장 타당한 근거'는?", "opts": [["A", "더 길고 전문 용어를 많이 사용한 답변이다"], ["B", "더 단정적이고 자신 있는 어조의 답변이다"], ["C", "출처·근거를 제시하고 불확실성을 명시한 답변이다"], ["D", "더 빠른 시간 안에 생성되어 나온 답변이다"]]}, {"id": "EV03", "dim": "evaluate", "kind": "mc", "stem": "AI가 그럴듯한 논문 제목과 저자, 연도까지 들어 출처를 제시했다. 가장 적절한 태도는?", "opts": [["A", "구체적인 서지정보가 제시되어 있으니 신뢰한다"], ["B", "실제로 존재하지 않는 인용일 수 있어 직접 확인한다"], ["C", "인용된 저자가 유명한 사람이면 신뢰한다"], ["D", "인용 형식이 정확하게 갖춰져 있으면 신뢰한다"]]}, {"id": "EV04", "dim": "evaluate", "kind": "mc", "stem": "AI 답이 한쪽 입장만 강하게 옹호한다. 편향 가능성을 점검하는 '가장 핵심적인' 방법은?", "opts": [["A", "답이 논리적이면 편향이 없다고 본다"], ["B", "반대 관점·근거를 따로 요청해 비교한다"], ["C", "답이 논리적이면 편향이 없다고 본다"], ["D", "같은 질문을 한 번 더 물어본다"]]}, {"id": "EV05", "dim": "evaluate", "kind": "mc", "stem": "전문 분야 답변의 신뢰성을 평가할 때, 비전문가가 취할 수 있는 '가장 타당한' 전략은?", "opts": [["A", "전문 용어가 많으면 정확하다고 본다"], ["B", "자신감 있는 어조이면 수용한다"], ["C", "분량이 길면 신뢰할 만하다고 본다"], ["D", "핵심 주장을 출처로 표본 점검한다"]]}, {"id": "ET01", "dim": "ethics", "kind": "mc", "stem": "회사 기밀 계약서를 외부 AI에 붙여넣고 요약을 요청하려 한다. 가장 큰 문제는?", "opts": [["A", "요약의 품질이 기대보다 낮게 나올 수 있다"], ["B", "외부 도구 이용에 비용이 많이 들 수 있다"], ["C", "요약 결과를 받기까지 시간이 오래 걸린다"], ["D", "기밀·개인정보가 외부로 유출·처리될 수 있다"]]}, {"id": "ET02", "dim": "ethics", "kind": "mc", "stem": "AI가 생성한 글을 그대로 자기 보고서에 제출하려 한다. 가장 먼저 고려할 점은?", "opts": [["A", "분량이 제출 기준 글자 수를 채우는지 여부"], ["B", "출처 표기 등 정직성 규범과 검증 책임"], ["C", "제출 기준 글자 수를 채우는지 여부"], ["D", "초안을 생성하는 데 걸린 시간"]]}, {"id": "ET03", "dim": "ethics", "kind": "mc", "stem": "AI 채용 선별 도구가 특정 집단을 불리하게 평가한다는 의심이 있다. 가장 핵심적인 점검 대상은?", "opts": [["A", "도구가 지원자를 처리하는 속도와 효율성"], ["B", "도구가 지원자를 처리하는 속도와 효율성"], ["C", "화면 구성과 사용 편의성(UI/UX)"], ["D", "학습 데이터와 결과에 내재한 편향(공정성)"]]}, {"id": "ET04", "dim": "ethics", "kind": "mc", "stem": "고객 데이터를 다루는 업무에 AI를 도입할 때, 책임 있는 사용에 '가장 부합하지 않는' 행동은?", "opts": [["A", "민감정보를 비식별화한 뒤 사용한다"], ["B", "민감정보를 그대로 외부 도구에 입력해도 된다"], ["C", "민감정보를 비식별화한 뒤에 사용한다"], ["D", "데이터 처리·보관 방침을 미리 확인한다"]]}, {"id": "ET05", "dim": "ethics", "kind": "mc", "stem": "AI가 만든 이미지를 상업적으로 쓰려 한다. 가장 신중히 따져야 할 점은?", "opts": [["A", "이미지의 해상도와 화질이 충분한지"], ["B", "학습 데이터·산출물의 저작권과 약관"], ["C", "이미지의 해상도와 화질이 충분한지 여부"], ["D", "저장에 사용된 파일 형식"]]}, {"id": "UN06", "dim": "understand", "kind": "mc", "stem": "LLM이 글을 처리하는 기본 단위로, 단어보다 잘게 쪼개질 수 있는 것은?", "opts": [["A", "토큰(token) 단위로 텍스트를 나누어 처리한다"], ["B", "항상 문장 전체를 하나의 덩어리로 처리한다"], ["C", "한글은 글자, 영어는 단어 단위로만 처리한다"], ["D", "이미지의 픽셀과 똑같은 방식으로 처리한다"]]}, {"id": "UN07", "dim": "understand", "kind": "mc", "stem": "AI에게 '검색해서' 최신 정보를 답하게 하는 기능(검색증강, RAG)의 핵심은?", "opts": [["A", "외부 자료를 찾아 근거로 삼아 답을 생성하는 것"], ["B", "질문할 때마다 모델을 새로 학습시키는 것"], ["C", "답변을 더 길고 자세하게 만들어 주는 것"], ["D", "질문을 자동으로 번역해 전달하는 것"]]}, {"id": "UN08", "dim": "understand", "kind": "mc", "stem": "창의적 답을 원하면 높이고, 일관된 답을 원하면 낮추는 설정(temperature)은 무엇을 조절하나?", "opts": [["A", "모델의 정확도 자체를 직접 끌어올린다"], ["B", "응답이 나오는 속도를 빠르게 조절한다"], ["C", "출력의 무작위성(다양성) 정도를 조절한다"], ["D", "한 번에 넣는 입력 길이 한계를 늘린다"]]}, {"id": "UN09", "dim": "understand", "kind": "mc", "stem": "'AI가 의식이나 의도를 갖고 답한다'는 생각이 부적절한 가장 큰 이유는?", "opts": [["A", "아직 충분히 똑똑하지 않아서 그렇다"], ["B", "아직 충분히 똑똑하지 않아서 그렇다"], ["C", "감정 표현 기능이 꺼져 있어서다"], ["D", "통계적 패턴으로 말을 잇는 것이기 때문"]]}, {"id": "UN10", "dim": "understand", "kind": "mc", "stem": "같은 질문에 더 정확히 답하도록 '회사 문서로 모델을 추가 학습'시키는 것에 가장 가까운 개념은?", "opts": [["A", "프롬프트 엔지니어링 — 지시문을 잘 다듬기"], ["B", "환각 억제 — 틀린 출력을 줄이려는 시도"], ["C", "토큰 압축 — 입력을 줄여 비용 절감"], ["D", "파인튜닝 — 추가 데이터로 모델을 미세조정"]]}, {"id": "US06", "dim": "use", "kind": "mc", "stem": "AI에게 '너는 숙련된 카피라이터다'처럼 역할을 부여하는 이유로 가장 적절한 것은?", "opts": [["A", "맥락을 좁혀 더 적합한 어조를 끌어내려고"], ["B", "AI가 실제로 그 직업을 갖게 하려고"], ["C", "답변이 나오는 속도를 높이려고"], ["D", "사용에 드는 비용을 줄이려고"]]}, {"id": "US07", "dim": "use", "kind": "mc", "stem": "표 형식의 결과가 필요할 때 가장 효과적인 프롬프트 요소는?", "opts": [["A", "원하는 출력 형식(열·예시)을 지정한다"], ["B", "'예쁘게 정리해줘'라고 표현한다"], ["C", "가능한 한 길게 써 달라고 한다"], ["D", "전문 용어를 많이 쓰라고 한다"]]}, {"id": "US08", "dim": "use", "kind": "mc", "stem": "긴 작업을 시킬 때 결과 품질을 높이는 가장 좋은 방법은?", "opts": [["A", "한 문장에 모든 요구를 몰아서 넣는다"], ["B", "작업을 작은 단계로 쪼개 순서대로 요청한다"], ["C", "되도록 모호하게 열어 두고 맡긴다"], ["D", "매번 새 대화로 처음부터 다시 한다"]]}, {"id": "US09", "dim": "use", "kind": "mc", "stem": "few-shot 예시를 넣었는데 결과가 더 나빠졌다. 가장 가능성 높은 원인은?", "opts": [["A", "예시는 언제나 성능을 떨어뜨리기 때문에"], ["B", "넣은 예시가 너무 짧았기 때문에"], ["C", "예시는 이미지 작업에만 효과가 있어서"], ["D", "예시가 형식과 어긋나 잘못된 패턴을 학습시켜서"]]}, {"id": "US10", "dim": "use", "kind": "mc", "stem": "코드 디버깅을 맡길 때, 정확한 도움을 받기 위한 가장 중요한 입력은?", "opts": [["A", "오류 메시지·재현 조건·기대 동작을 함께 준다"], ["B", "별다른 설명 없이 '고쳐줘'라고만 한다"], ["C", "코드를 줄여 일부 조각만 보여 준다"], ["D", "가장 최신 AI 모델인지부터 확인한다"]]}, {"id": "EV06", "dim": "evaluate", "kind": "mc", "stem": "AI가 계산 결과를 자신 있게 제시했다. 가장 적절한 행동은?", "opts": [["A", "자신 있어 보이니 그대로 가져다 쓴다"], ["B", "숫자가 깔끔하게 떨어지면 신뢰한다"], ["C", "핵심 수치를 직접 계산하거나 도구로 재확인한다"], ["D", "같은 AI에 한 번 더 물어보고 끝낸다"]]}, {"id": "EV07", "dim": "evaluate", "kind": "mc", "stem": "AI가 만든 코드를 받았을 때, 신뢰성을 확인하는 가장 타당한 방법은?", "opts": [["A", "직접 실행·테스트해 동작과 예외를 확인한다"], ["B", "코드가 길고 복잡하면 잘 짠 것으로 본다"], ["C", "주석이 많이 달려 있으면 정확하다고 본다"], ["D", "빠르게 생성되어 나왔으면 신뢰한다"]]}, {"id": "EV08", "dim": "evaluate", "kind": "mc", "stem": "AI 답이 질문을 살짝 바꿔 되풀이할 뿐 근거가 없다. 이를 부르는 말에 가장 가까운 것은?", "opts": [["A", "잘 정리된 신뢰할 만한 요약이다"], ["B", "잘 정리된 신뢰할 만한 요약이다"], ["C", "근거 없이 그럴듯하게 포장된 공허한 답"], ["D", "의도적으로 숨긴 고급 정보다"]]}, {"id": "EV09", "dim": "evaluate", "kind": "mc", "stem": "여러 출처가 상충할 때, AI 요약의 신뢰성을 판단하는 가장 핵심 기준은?", "opts": [["A", "AI가 다수 의견이라고 말한 쪽을 택한다"], ["B", "더 길게 설명한 쪽을 믿고 택한다"], ["C", "가장 최근에 생성된 답을 택한다"], ["D", "각 주장이 1차·신뢰 출처로 추적되는지 본다"]]}, {"id": "EV10", "dim": "evaluate", "kind": "mc", "stem": "AI가 제시한 '최신 통계 2025년 기준'이라는 수치를 쓸 때 먼저 할 일은?", "opts": [["A", "연도가 적혀 있으니 그대로 인용한다"], ["B", "연도가 적혀 있으니 그대로 쓴다"], ["C", "발표 기관 자료로 수치와 연도를 대조한다"], ["D", "표로 정리돼 있으면 신뢰한다"]]}, {"id": "ET06", "dim": "ethics", "kind": "mc", "stem": "AI 도움으로 만든 보고서를 공유할 때 책임 있는 태도는?", "opts": [["A", "전부 내가 직접 한 것처럼 둔다"], ["B", "전부 내가 직접 한 것처럼 둔다"], ["C", "AI 활용 사실과 검증 책임을 밝힌다"], ["D", "분량 기준만 맞으면 된다"]]}, {"id": "ET07", "dim": "ethics", "kind": "mc", "stem": "검증되지 않은 AI 생성 정보를 그대로 SNS에 공유할 때 가장 큰 위험은?", "opts": [["A", "게시물의 분량이 길어질 수 있다"], ["B", "허위정보가 사실처럼 빠르게 퍼진다"], ["C", "받는 좋아요 수가 적을 수 있다"], ["D", "글 쓰는 데 시간이 걸린다"]]}, {"id": "ET08", "dim": "ethics", "kind": "mc", "stem": "실존 인물의 얼굴·목소리를 AI로 합성해 콘텐츠를 만들 때 핵심 쟁점은?", "opts": [["A", "동의·초상권·허위표현 등 권리 침해 문제"], ["B", "합성 결과물의 화질이 충분한지 여부"], ["C", "합성에 들어가는 비용과 시간 규모"], ["D", "출력되는 결과 파일의 용량 크기"]]}, {"id": "ET09", "dim": "ethics", "kind": "mc", "stem": "AI 챗봇을 정서적 상담에 쓰려는 사용자에게 가장 적절한 안내는?", "opts": [["A", "한계를 알리고 위기 시 전문가 연계를 권한다"], ["B", "사람 상담을 완전히 대체할 수 있다고 한다"], ["C", "무조건 쓰지 말라고만 안내한다"], ["D", "비용이 싸니 계속 쓰라고 권한다"]]}, {"id": "ET10", "dim": "ethics", "kind": "mc", "stem": "교육 현장에서 학생 과제에 AI 사용을 허용할 때, 공정성을 위해 가장 중요한 것은?", "opts": [["A", "잘 쓰는 학생에게만 허용해 준다"], ["B", "사용 범위·표기 기준을 동일 적용한다"], ["C", "전면 금지가 유일한 답이다"], ["D", "쓰는 도구 브랜드를 통일한다"]]}, {"id": "CR01", "dim": "create", "kind": "perf", "stem": "[수행과제] 다음 목표·청중·제약에 맞는 프롬프트를 직접 작성하시오: (목표) 신입사원 온보딩 안내문 / (청중) 비전공 신입 / (제약) 친근한 톤, 5단계 이내, 회사 보안수칙 1줄 포함.", "crit": [{"key": "C1_맥락", "a0": "목표·청중 미반영", "a1": "목표 또는 청중 하나만", "a2": "목표(온보딩 안내문)+청중(비전공 신입) 모두 명시"}, {"key": "C2_제약형식", "a0": "제약 0~1개", "a1": "세 제약 중 2개", "a2": "친근한 톤·5단계 이내·보안수칙 1줄 모두 지시"}, {"key": "C3_역할예시", "a0": "없음", "a1": "가벼운 역할 또는 예시", "a2": "명확한 역할부여 또는 구체 예시/출력형식"}, {"key": "C4_검증반복", "a0": "없음", "a1": "모호한 점검 1회", "a2": "자기점검 또는 초안→수정 반복 절차 설계"}]}, {"id": "CR02", "dim": "create", "kind": "perf", "stem": "[수행과제] AI가 만든 초안에서 '사실 오류 가능성'이 있는 부분을 표시하고, 그 부분을 검증·교정하도록 지시하는 후속 프롬프트를 작성하시오.", "crit": [{"key": "D1_검증대상", "a0": "대상 불명", "a1": "막연히 '틀린 부분'", "a2": "사실·수치·인용·날짜 등 유형 구체 지정"}, {"key": "D2_검증방법", "a0": "없음", "a1": "모호한 재확인", "a2": "출처제시·1차자료 대조·교차검증 구체 지시"}, {"key": "D3_불확실성표시", "a0": "없음", "a1": "'맞는지 알려줘' 수준", "a2": "확신도/근거 표기 또는 불확실 항목 별도 표시 요구"}, {"key": "D4_교정형식", "a0": "없음", "a1": "'고쳐줘'만", "a2": "수정 범위·형식(변경점 표시·근거와 교체) 지정"}]}, {"id": "SE01", "dim": "selfeff", "kind": "se", "stem": "처음 보는 AI 도구도 금방 익혀 활용할 자신이 있다."}, {"id": "SE02", "dim": "selfeff", "kind": "se", "stem": "복잡한 작업도 AI를 활용해 해낼 수 있다고 느낀다."}, {"id": "SE03", "dim": "selfeff", "kind": "se", "stem": "AI가 기대와 다른 결과를 줘도 원하는 방향으로 끌어낼 수 있다."}, {"id": "SE04", "dim": "selfeff", "kind": "se", "stem": "새로운 AI 기능을 보면 부담스럽고 피하고 싶다."}, {"id": "SE05", "dim": "selfeff", "kind": "se", "stem": "AI를 쓰다 막혀도, 방법을 바꿔가며 스스로 해결책을 찾는 편이다."}, {"id": "SE06", "dim": "selfeff", "kind": "se", "stem": "AI가 한 번에 좋은 결과를 주지 않으면 금방 포기하게 된다."}];
+const GAPDIM = {"SDTC": "평가", "SDVC": "윤리", "BDTC": "평가", "BDVC": "윤리", "SPTC": "활용", "SPVC": "활용", "BPTC": "이해", "BPVC": "창작", "SPTA": "활용", "SPVA": "평가", "BPTA": "이해", "BPVA": "창작", "SDTA": "평가", "SDVA": "활용", "BDTA": "평가", "BDVA": "창작"};
+const WQ_IDS = ["a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4", "c1", "c2", "c3", "c4", "d1", "d2", "d3", "d4"];
+/* ===== SCORING ENGINE ===== */
+/* ============================================================
+ * A안 Layer 2 역량 채점 엔진 (클라이언트, 드롭인)
+ * scoreLayer2(responses, rubric) → {scores, grades, composite, ...}
+ * - 객관식 4차원: 난이도(target_b) 가중 정답률 → 0-100
+ * - 자기효능(1-5): SE04·SE06 역채점 평균 → 0-100
+ * - 창작(루브릭 0-8): 합 → 0-100 (rubric 인자로 입력)
+ * scores 형태는 리포트 PROFILES[code].scores 와 동일.
+ * ============================================================ */
+const LAYER2_CONFIG = {"instrument": "AI 협업 프로파일 — Layer 2 역량 채점", "version": "classical-v1 (IRT 보정 대기)", "dims": ["understand", "use", "evaluate", "create", "ethics", "selfeff"], "grade_bands": [[0, 40, "탐색가"], [40, 70, "실무자"], [70, 85, "능숙자"], [85, 100, "전문가"]], "objective_weight": {"-1": 0.8, "0": 1.0, "1": 1.3}, "objective": [{"id": "UN01", "dim": "understand", "key": "B", "target_b": -1, "misconception": {"A": "성능 문제와 혼동", "C": "거부=환각으로 오해", "D": "비결정성과 혼동"}}, {"id": "UN02", "dim": "understand", "key": "C", "target_b": -1, "misconception": {"A": "검색-DB 모델로 오해", "B": "항상 실시간 검색한다고 오해", "D": "규칙기반 챗봇과 혼동"}}, {"id": "UN03", "dim": "understand", "key": "B", "target_b": 0, "misconception": {"A": "모든 오류를 환각으로 귀인", "C": "편향과 혼동", "D": "성능 문제로 오해"}}, {"id": "UN04", "dim": "understand", "key": "C", "target_b": 1, "misconception": {"A": "언어 편중으로 귀인", "B": "프롬프트 길이로 귀인", "D": "길이-정확도 오개념"}}, {"id": "UN05", "dim": "understand", "key": "C", "target_b": 1, "misconception": {"A": "기억·의도 오개념", "B": "환각으로 과잉귀인", "D": "항상 실시간 검색 가정"}}, {"id": "US01", "dim": "use", "key": "D", "target_b": -1, "misconception": {"A": "모델 재학습과 혼동", "B": "무관 개념", "C": "무관 개념"}}, {"id": "US02", "dim": "use", "key": "A", "target_b": 0, "misconception": {"B": "맥락 없는 지시가 충분하다고 오해", "C": "반복(iteration) 불필요로 오해", "D": "지시 없는 모방의 한계"}}, {"id": "US03", "dim": "use", "key": "C", "target_b": 0, "misconception": {"A": "반복 개선 대신 초기화에 의존", "B": "동일 입력 반복이 개선이라 오해", "D": "어조-품질 오개념"}}, {"id": "US04", "dim": "use", "key": "D", "target_b": 1, "misconception": {"A": "과신 억제와 추론 향상을 혼동", "B": "어조-정확도 오개념", "C": "출력 압축이 추론을 해침"}}, {"id": "US05", "dim": "use", "key": "A", "target_b": 1, "misconception": {"B": "형식은 프롬프트로 통제 가능", "C": "분량은 프롬프트로 통제 가능", "D": "톤은 프롬프트로 통제 가능"}}, {"id": "EV01", "dim": "evaluate", "key": "D", "target_b": -1, "misconception": {"A": "자기확인의 신뢰성 오개념", "B": "표면 그럴듯함=진실", "C": "동조=검증 오개념"}}, {"id": "EV02", "dim": "evaluate", "key": "C", "target_b": 0, "misconception": {"A": "길이·현학=신뢰", "B": "확신=정확(환각의 함정)", "D": "속도=품질"}}, {"id": "EV03", "dim": "evaluate", "key": "B", "target_b": 0, "misconception": {"A": "구체성=진실(허위인용 무지)", "C": "권위=정확", "D": "형식=진실"}}, {"id": "EV04", "dim": "evaluate", "key": "B", "target_b": 1, "misconception": {"A": "논리성=무편향", "C": "분량으로 편향 해소 오개념", "D": "반복=검증 오개념"}}, {"id": "EV05", "dim": "evaluate", "key": "D", "target_b": 1, "misconception": {"A": "현학=정확", "B": "확신=정확", "C": "길이=신뢰"}}, {"id": "ET01", "dim": "ethics", "key": "D", "target_b": -1, "misconception": {"A": "리스크를 품질로 축소", "B": "리스크를 비용으로 오인", "C": "핵심 위험 간과"}}, {"id": "ET02", "dim": "ethics", "key": "B", "target_b": 0, "misconception": {"A": "분량 중심 사고", "C": "무관 요소", "D": "무관 요소"}}, {"id": "ET03", "dim": "ethics", "key": "D", "target_b": 0, "misconception": {"A": "성능≠공정성", "B": "무관 요소", "C": "무관 요소"}}, {"id": "ET04", "dim": "ethics", "key": "B", "target_b": 1, "misconception": {"A": "정답에 가까운 모범행동(역방향 함정)", "C": "모범행동", "D": "최소수집 원칙"}}, {"id": "ET05", "dim": "ethics", "key": "B", "target_b": 1, "misconception": {"A": "기술 사양으로 축소", "C": "비용으로 축소", "D": "무관 요소"}}, {"id": "UN06", "dim": "understand", "key": "A", "target_b": -1, "misconception": {"B": "문장 단위 처리로 오해", "C": "고정 단위로 오해", "D": "양식 혼동"}}, {"id": "UN07", "dim": "understand", "key": "A", "target_b": 0, "misconception": {"B": "재학습과 혼동", "C": "길이와 혼동", "D": "무관 기능"}}, {"id": "UN08", "dim": "understand", "key": "C", "target_b": 0, "misconception": {"A": "정확도 직접 통제로 오해", "B": "속도와 혼동", "D": "맥락창과 혼동"}}, {"id": "UN09", "dim": "understand", "key": "D", "target_b": 1, "misconception": {"A": "성능 문제로 축소", "B": "기능 설정으로 오해", "C": "데이터량 문제로 축소"}}, {"id": "UN10", "dim": "understand", "key": "D", "target_b": 1, "misconception": {"A": "프롬프트로 오해", "B": "무관 개념", "C": "무관 개념"}}, {"id": "US06", "dim": "use", "key": "A", "target_b": -1, "misconception": {"B": "역할부여를 문자 그대로 오해", "C": "속도와 혼동", "D": "비용과 혼동"}}, {"id": "US07", "dim": "use", "key": "A", "target_b": 0, "misconception": {"B": "모호한 지시로 충분하다고 오해", "C": "길이와 혼동", "D": "현학과 혼동"}}, {"id": "US08", "dim": "use", "key": "B", "target_b": 0, "misconception": {"A": "과부하 한 번에 처리로 오해", "C": "모호성이 낫다고 오해", "D": "맥락 유지 무시"}}, {"id": "US09", "dim": "use", "key": "D", "target_b": 1, "misconception": {"A": "few-shot 전면 부정", "B": "길이 문제로 귀인", "C": "양식 오개념"}}, {"id": "US10", "dim": "use", "key": "A", "target_b": 1, "misconception": {"B": "맥락 없는 요청", "C": "정보 누락이 낫다고 오해", "D": "모델 신상=정확 오개념"}}, {"id": "EV06", "dim": "evaluate", "key": "C", "target_b": -1, "misconception": {"A": "확신=정확", "B": "형태=정확", "D": "자기확인 신뢰"}}, {"id": "EV07", "dim": "evaluate", "key": "A", "target_b": 0, "misconception": {"B": "복잡성=품질", "C": "주석=정확", "D": "속도=품질"}}, {"id": "EV08", "dim": "evaluate", "key": "C", "target_b": 0, "misconception": {"A": "포장을 품질로 오해", "B": "근거 있다고 오해", "D": "은폐로 미화"}}, {"id": "EV09", "dim": "evaluate", "key": "D", "target_b": 1, "misconception": {"A": "다수=진실(AI 주장 그대로)", "B": "길이=신뢰", "C": "생성시점=정확"}}, {"id": "EV10", "dim": "evaluate", "key": "C", "target_b": 0, "misconception": {"A": "표기=사실", "B": "구체성=진실", "D": "형식=진실"}}, {"id": "ET06", "dim": "ethics", "key": "C", "target_b": -1, "misconception": {"A": "기여 은폐", "B": "브랜드 고지로 충분 오해", "D": "분량 중심"}}, {"id": "ET07", "dim": "ethics", "key": "B", "target_b": 0, "misconception": {"A": "무관", "C": "무관", "D": "무관"}}, {"id": "ET08", "dim": "ethics", "key": "A", "target_b": 1, "misconception": {"B": "기술 사양으로 축소", "C": "비용으로 축소", "D": "무관"}}, {"id": "ET09", "dim": "ethics", "key": "A", "target_b": 0, "misconception": {"B": "전면 대체 가능 오개념", "C": "전면 금지 과잉", "D": "비용 중심"}}, {"id": "ET10", "dim": "ethics", "key": "B", "target_b": 1, "misconception": {"A": "차등 적용=불공정", "C": "전면 금지 과잉", "D": "무관 요소"}}], "selfreport": [{"id": "SE01", "dim": "selfeff", "reverse": false}, {"id": "SE02", "dim": "selfeff", "reverse": false}, {"id": "SE03", "dim": "selfeff", "reverse": false}, {"id": "SE04", "dim": "selfeff", "reverse": true}, {"id": "SE05", "dim": "selfeff", "reverse": false}, {"id": "SE06", "dim": "selfeff", "reverse": true}], "performance": [{"id": "CR01", "dim": "create", "max": 8, "target_b": 0}, {"id": "CR02", "dim": "create", "max": 8, "target_b": 1}], "note": "객관식=난이도가중 정답률→0-100 / 자기효능=역채점 평균→0-100 / 창작=루브릭합→0-100. 종합=6차원 평균."};
+
+function l2_gradeOf(s, bands){
+  if(s===null||s===undefined) return null;
+  for(const [lo,hi,name] of bands){ if((s>=lo&&s<hi)||(hi===100&&s===100)) return name; }
+  return bands[bands.length-1][2];
+}
+function l2_round(x){ return Math.round(x*10)/10; }
+
+function scoreLayer2(responses, rubric){
+  const cfg=LAYER2_CONFIG, bands=cfg.grade_bands;
+  const W={}; for(const k in cfg.objective_weight) W[+k]=cfg.objective_weight[k];
+  rubric=rubric||{};
+  const scores={}, grades={}, coverage={}, miss={};
+
+  // 객관식 4차원
+  const byDim={}; cfg.objective.forEach(o=>{(byDim[o.dim]=byDim[o.dim]||[]).push(o);});
+  for(const dim in byDim){
+    let earned=0,possible=0,nA=0,nC=0;
+    for(const it of byDim[dim]){
+      const ans=responses[it.id]; if(ans==null) continue;
+      nA++; const w=(it.target_b in W)?W[it.target_b]:1.0; possible+=w;
+      if(ans===it.key){ earned+=w; nC++; }
+      else { const lab=(it.misconception||{})[ans]; if(lab) miss[lab]=(miss[lab]||0)+1; }
+    }
+    scores[dim]=possible? l2_round(earned/possible*100):null;
+    coverage[dim]={administered:nA,correct:nC,total:byDim[dim].length};
+  }
+  // 자기효능
+  let seSum=0,nSE=0;
+  for(const s of cfg.selfreport){ let v=responses[s.id]; if(v==null) continue; v=+v; if(s.reverse) v=6-v; seSum+=v; nSE++; }
+  const seDim=cfg.selfreport.length?cfg.selfreport[0].dim:"selfeff";
+  scores[seDim]=nSE? l2_round(((seSum/nSE)-1)/4*100):null;
+  coverage[seDim]={administered:nSE,total:cfg.selfreport.length};
+  // 창작(루브릭)
+  let got=0,pmax=0,nP=0; const perfDim=cfg.performance.length?cfg.performance[0].dim:"create";
+  for(const p of cfg.performance){ let r=rubric[p.id]; if(r==null) continue; r=Math.max(0,Math.min(+r,p.max)); got+=r; pmax+=p.max; nP++; }
+  scores[perfDim]=pmax? l2_round(got/pmax*100):null;
+  coverage[perfDim]={administered:nP,total:cfg.performance.length,scored:pmax>0};
+
+  cfg.dims.forEach(d=>{grades[d]=l2_gradeOf(scores[d],bands);});
+  const valid=cfg.dims.filter(d=>scores[d]!=null);
+  const composite=valid.length? l2_round(valid.reduce((a,d)=>a+scores[d],0)/valid.length):null;
+  let weakest=null,strongest=null;
+  if(valid.length){ weakest=valid.reduce((m,d)=>scores[d]<scores[m]?d:m,valid[0]); strongest=valid.reduce((m,d)=>scores[d]>scores[m]?d:m,valid[0]); }
+  const flags=[]; const missing=cfg.dims.filter(d=>scores[d]==null);
+  if(missing.length) flags.push("미채점 차원: "+missing.join(", "));
+  if(scores[perfDim]==null) flags.push("창작=루브릭 점수 미입력(평정자/LLM 필요)");
+
+  const outScores={}; cfg.dims.forEach(d=>outScores[d]=scores[d]);
+  return { scores:outScores, grades, composite, composite_grade:l2_gradeOf(composite,bands),
+    weakest, strongest,
+    misconceptions:Object.entries(miss).map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count),
+    coverage, flags };
+}
+// 베타→IRT 훅: θ(차원별) → 0-100
+function scoreObjectiveIRT(thetaTable){
+  const o={}; for(const d in thetaTable){ o[d]=l2_round(Math.max(0,Math.min(100,50+15*thetaTable[d]))); } return o;
+}
+
+/* ===== FLOW ===== */
+/* ========== 공통 ========== */
+const $=id=>document.getElementById(id);
+function show(s){document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));$(s).classList.add('active');window.scrollTo(0,0);}
+function setAccent(gKey,map){const g=map[gKey];document.documentElement.style.setProperty('--accent',g.color);document.documentElement.style.setProperty('--accent-t',g.tint);}
+function copyText(text,btnId,label,ev){const btn=$(btnId); if(ev)track(ev,{style_code:(W&&W.code)||(R&&R.code)||null});
+  const done=()=>{btn.classList.add('done');btn.textContent='✓ 복사됨!';setTimeout(()=>{btn.classList.remove('done');btn.textContent=label;},2000);};
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');done();}catch(e){alert('길게 눌러 복사해 주세요.');}document.body.removeChild(ta);};
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done).catch(fb);}else fb();}
+function gradeOf(s){if(s==null)return['—',0];if(s<40)return['탐색가',0];if(s<70)return['실무자',1];if(s<85)return['능숙자',2];return['전문가',3];}
+
+/* ========== 설정: 교차 링크 URL + 계측 ========== */
+/* ▼▼ 배포 시 아래 URL을 실제 주소로 채우세요 ▼▼ */
+const FUNNEL_CONFIG={
+  links:{
+    mindsetTest:"",   // B안(AI 마인드셋 검사) 배포 URL
+    workstyleTest:"", // A안(이 통합앱) 자신의 URL — B안에서 역링크용
+  },
+  analytics:{ debug:true }, // true면 콘솔 로깅. 운영 시 false 권장
+  collect:{                 // ▼ 응답 수집(구글 시트 등). endpoint 비우면 전송 안 함
+    endpoint:"https://script.google.com/macros/s/AKfycbz_rtSm_8ZWdkt3dF-Y0yapVkYMUypW1Ght8JegaDd61a7WwyIQnRBEQ6KUXhI71W-QTQ/exec",            // Apps Script 웹앱 URL (배포 후 붙여넣기) — Supabase 등으로 교체 가능
+    token:"",               // (선택) 간단 인증 토큰 — Apps Script와 동일 값
+    requireConsent:true     // true면 동의 체크 시에만 전송
+  }
+};
+/* 분석 비종속 이벤트 트래커 — GA4·GTM·Mixpanel·Amplitude·Segment·PostHog 자동 감지 */
+function track(event,props){
+  props=props||{}; const payload=Object.assign({event:event,ts:Date.now()},props);
+  if(FUNNEL_CONFIG.analytics.debug) console.log("[track]",event,props);
+  try{
+    if(window.gtag) window.gtag('event',event,props);                 // GA4
+    if(window.dataLayer&&window.dataLayer.push) window.dataLayer.push(payload); // GTM
+    if(window.mixpanel&&window.mixpanel.track) window.mixpanel.track(event,props);
+    if(window.amplitude&&window.amplitude.track) window.amplitude.track(event,props);
+    if(window.analytics&&window.analytics.track) window.analytics.track(event,props); // Segment
+    if(window.posthog&&window.posthog.capture) window.posthog.capture(event,props);
+  }catch(e){ if(FUNNEL_CONFIG.analytics.debug) console.warn("track err",e); }
+}
+/* 교차 링크 이동(B↔A) */
+function crossLink(target){
+  track('cross_link_click',{to:target,style_code:(W&&W.code)||null});
+  const url = target==='mindset'?FUNNEL_CONFIG.links.mindsetTest:FUNNEL_CONFIG.links.workstyleTest;
+  if(url) window.open(url,'_blank','noopener');
+  else alert('링크가 아직 설정되지 않았어요.\n코드 상단 FUNNEL_CONFIG.links 에 주소를 넣어주세요.');
+}
+
+/* ========== 응답 수집(IRT 형식 그대로) ========== */
+function _uuid(){return 'r-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);}
+let RESPONDENT_ID=_uuid();
+function consentGiven(){const e=$('consentChk');return e?e.checked:false;}
+/* 한 응답자 = 한 줄. 문항ID가 곧 열 → to_response_csv / irt_analysis.py 와 정렬 */
+function buildPayload(stage,scored){
+  const p={respondent_id:RESPONDENT_ID,stage:stage,ts:new Date().toISOString(),app_version:'integrated-v1',
+           style_code:(W&&W.code)||'',style_type:(W&&W.t&&W.t.n)||''};
+  for(let i=0;i<WQ_IDS.length;i++) p['ws_'+WQ_IDS[i]]=wqAns[i];   // 워크스타일 16답
+  if(stage==='full'){
+    for(const id in cResp) p[id]=cResp[id];                       // 역량 객관식·자기효능(UN01.., SE01..)
+    for(const id in cRubric){ p[id]=Object.values(cRubric[id]).reduce((a,b)=>a+(b||0),0); } // 창작 루브릭 합(CR01,CR02)
+    if(scored){ const s=scored.scores; for(const k in s) p['sc_'+k]=s[k]; p['composite']=scored.composite; p['grade']=scored.composite_grade; }
+  }
+  return p;
+}
+function submitResults(stage,scored){
+  const c=FUNNEL_CONFIG.collect;
+  if(!c||!c.endpoint){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] endpoint 미설정 — 전송 생략'); return; }
+  if(c.requireConsent && !consentGiven()){ if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] 동의 없음 — 전송 생략'); return; }
+  const payload=buildPayload(stage,scored); payload.token=c.token||'';
+  try{
+    fetch(c.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+    track('data_submitted',{stage:stage,style_code:(W&&W.code)||null});
+    if(FUNNEL_CONFIG.analytics.debug) console.log('[collect] 전송('+stage+')',payload);
+  }catch(e){ if(FUNNEL_CONFIG.analytics.debug) console.warn('[collect] 실패',e); }
+}
+
+/* ========== 1단계: 워크스타일 ========== */
+const WN=QW.length; let wqIdx=0; const wqAns=new Array(WN).fill(null);
+const W={code:null,leans:null,t:null};
+const W_SCALE=[["전혀 아니다",1],["아니다",2],["보통",3],["그렇다",4],["매우 그렇다",5]];
+function startW(){track('a_free_start');wqIdx=0;renderWQ();show('s-wq');}
+function renderWQ(){const q=QW[wqIdx];$('wq-count').textContent=String(wqIdx+1).padStart(2,'0')+' / '+WN;$('wq-prog').style.width=(wqIdx/WN*100)+'%';
+  $('wq-kicker').textContent=AX_W[q.a].name;$('wq-text').textContent=q.t;
+  const sc=$('wq-scale');sc.innerHTML='';W_SCALE.forEach(([label,val])=>{const b=document.createElement('button');b.className='opt'+(wqAns[wqIdx]===val?' sel':'');b.innerHTML='<span class="pip"></span>'+label;b.onclick=()=>{wqAns[wqIdx]=val;wqNext();};sc.appendChild(b);});
+  $('wq-back').disabled=wqIdx===0;}
+function wqNext(){$('wq-prog').style.width=((wqIdx+1)/WN*100)+'%';setTimeout(()=>{if(wqIdx<WN-1){wqIdx++;renderWQ();}else finishW();},170);}
+function wqBack(){if(wqIdx>0){wqIdx--;renderWQ();}}
+function scoreWcode(){const sums=[0,0,0,0],leans=[];for(let i=0;i<WN;i++){const q=QW[i];sums[q.a]+=(q.p===AX_W[q.a].P)?wqAns[i]:(6-wqAns[i]);}
+  let code='';for(let a=0;a<4;a++){code+=(sums[a]>=12)?AX_W[a].P:AX_W[a].M;const pp=(sums[a]-4)/16*100;const lp=pp>=50;leans.push({ax:a,label:lp?AX_W[a].plus:AX_W[a].minus,pct:Math.round(lp?pp:100-pp),plus:pp});}
+  return{code,leans};}
+function finishW(){const r=scoreWcode();W.code=r.code;W.leans=r.leans;W.t=T[r.code];paintW();track('a_free_complete',{style_code:W.code,type:W.t.n});submitResults('free');track('hook_view',{style_code:W.code});show('s-wresult');}
+function drawMiniRadar(svgId){const svg=$(svgId);const cx=100,cy=92,R=66;const labels=['이해','활용','평가','창작','윤리','자기효능'];const vals=[0.78,0.62,0.85,0.55,0.7,0.66];
+  const pt=(i,r)=>{const a=-Math.PI/2+i*Math.PI/3;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];};let s='';
+  [1,0.66,0.33].forEach(k=>{let p='';for(let i=0;i<6;i++){const[x,y]=pt(i,R*k);p+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}s+=`<path d="${p}Z" fill="none" stroke="#E4E1EC" stroke-width="1"/>`;});
+  for(let i=0;i<6;i++){const[x,y]=pt(i,R);s+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E4E1EC" stroke-width="1"/>`;}
+  let dp='';for(let i=0;i<6;i++){const[x,y]=pt(i,R*vals[i]);dp+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}
+  const acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();s+=`<path d="${dp}Z" fill="${acc}" fill-opacity="0.28" stroke="${acc}" stroke-width="2"/>`;
+  for(let i=0;i<6;i++){const[x,y]=pt(i,R+14);s+=`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="9" fill="#6B6577" text-anchor="middle" dominant-baseline="middle">${labels[i]}</text>`;}svg.innerHTML=s;}
+function paintW(){const d=W.t,code=W.code,g=GROUPS_W[d.f];setAccent(d.f,GROUPS_W);
+  $('w-fam').textContent=g.emoji+' '+g.name+' · '+g.en;$('w-code').textContent=code;$('w-nick').textContent=d.n;$('w-tag').textContent='“'+d.tag+'”';
+  $('w-badges').innerHTML=`<span class="badge tier">${d.tier}</span><span class="badge">전체의 약 ${d.r}%</span><span class="badge">${g.name}</span>`;
+  $('w-bars').innerHTML=W.leans.map(l=>{const a=AX_W[l.ax];const plus=l.plus;return `<div class="bar"><div class="blab"><span>${a.minus}</span><b>${l.label} ${l.pct}%</b><span>${a.plus}</span></div><div class="track"><i style="left:${plus>=50?50:plus}%;width:${Math.abs(plus-50)}%"></i></div></div>`;}).join('');
+  $('w-desc').textContent=d.d;$('w-str').innerHTML=d.s.map(s=>`<span class="chip">${s}</span>`).join('');
+  $('w-guide').textContent=GUIDE[code];const wc=$('w-copy');wc.classList.remove('done');wc.textContent='📋 설명서 복사하기';
+  const gd=GAPDIM[code];$('w-gaphook').innerHTML=`<b>${d.n}</b>의 우선 성장 역량은 <b>${gd}</b>. 심화 진단에서 정확한 점수와 성장 경로를 확인하세요.`;
+  drawMiniRadar('w-radar');}
+
+/* ========== 게이트 ========== */
+function goGate(){track('hook_cta_click',{style_code:W.code});$('gate-nick').textContent=W.t.n;setAccent(W.t.f,GROUPS_W);track('checkout_start',{style_code:W.code});show('s-gate');}
+function payDemo(){track('purchase',{demo:true,amount:0,style_code:W.code});startC();}
+
+/* ========== 2단계: 역량 진단 ========== */
+const CN=COMP.length; let cqIdx=0; const cResp={}; const cRubric={};
+const C_SCALE=[["전혀 아니다",1],["아니다",2],["보통",3],["그렇다",4],["매우 그렇다",5]];
+const DIMNAME={understand:'이해',use:'활용',evaluate:'평가',ethics:'윤리',create:'창작',selfeff:'자기효능'};
+function startC(){track('competency_start',{style_code:W.code});cqIdx=0;renderCQ();show('s-cq');}
+function renderCQ(){const it=COMP[cqIdx];$('cq-count').textContent=String(cqIdx+1).padStart(2,'0')+' / '+CN;$('cq-prog').style.width=(cqIdx/CN*100)+'%';
+  $('cq-kicker').textContent=DIMNAME[it.dim]||it.dim;$('cq-text').textContent=it.stem;
+  const body=$('cq-body');body.innerHTML='';const next=$('cq-next');next.style.display='none';
+  if(it.kind==='mc'){
+    it.opts.forEach(([letter,text])=>{const b=document.createElement('button');b.className='opt'+(cResp[it.id]===letter?' sel':'');b.innerHTML='<span class="pip"></span>'+text;b.onclick=()=>{cResp[it.id]=letter;cqNext();};body.appendChild(b);});
+  }else if(it.kind==='se'){
+    const sc=document.createElement('div');sc.className='scale';C_SCALE.forEach(([label,val])=>{const b=document.createElement('button');b.className='opt'+(cResp[it.id]===val?' sel':'');b.innerHTML='<span class="pip"></span>'+label;b.onclick=()=>{cResp[it.id]=val;cqNext();};sc.appendChild(b);});body.appendChild(sc);
+  }else if(it.kind==='perf'){
+    const ta=document.createElement('textarea');ta.placeholder='여기에 프롬프트를 작성해 보세요…';ta.value=(cResp[it.id+'_text']||'');ta.oninput=e=>{cResp[it.id+'_text']=e.target.value;};body.appendChild(ta);
+    const note=document.createElement('div');note.style.cssText='font-size:12.5px;color:var(--muted);margin:14px 0 4px';note.textContent='작성한 프롬프트를 스스로 평가해 주세요 (정식판은 전문가/LLM 채점):';body.appendChild(note);
+    cRubric[it.id]=cRubric[it.id]||{};
+    it.crit.forEach(c=>{const wrap=document.createElement('div');wrap.className='crit';
+      const lab=document.createElement('div');lab.className='ci';lab.innerHTML=c.key.replace(/^[A-Z]\d_/,'')+`<span class="hint">충족 시: ${c.a2}</span>`;wrap.appendChild(lab);
+      const seg=document.createElement('div');seg.className='seg';[['미흡',0],['부분',1],['충족',2]].forEach(([t,v])=>{const b=document.createElement('button');b.textContent=t;if(cRubric[it.id][c.key]===v)b.classList.add('on');b.onclick=()=>{cRubric[it.id][c.key]=v;renderCQ();};seg.appendChild(b);});wrap.appendChild(seg);body.appendChild(wrap);});
+    next.style.display='block';next.disabled=false;
+  }
+  $('cq-back').disabled=cqIdx===0;}
+function cqNext(){$('cq-prog').style.width=((cqIdx+1)/CN*100)+'%';const adv=()=>{if(cqIdx<CN-1){cqIdx++;renderCQ();}else finishC();};
+  if(COMP[cqIdx].kind==='perf')adv();else setTimeout(adv,150);}
+function cqBack(){if(cqIdx>0){cqIdx--;renderCQ();}}
+function finishC(){track('competency_complete',{style_code:W.code});show('s-scoring');setTimeout(runScoring,900);}
+
+/* 샘플 빠른 채우기(데모) */
+function sampleSkip(){
+  for(const it of COMP){
+    if(it.kind==='mc'){const r=Math.random();cResp[it.id]= r<0.62 ? (LAYER2_CONFIG.objective.find(o=>o.id===it.id)||{}).key||it.opts[0][0] : it.opts[Math.floor(Math.random()*it.opts.length)][0];}
+    else if(it.kind==='se'){cResp[it.id]=3+Math.floor(Math.random()*3);}
+    else if(it.kind==='perf'){cRubric[it.id]={};it.crit.forEach(c=>cRubric[it.id][c.key]=1+Math.round(Math.random()));}
+  }
+  track('sample_skip',{style_code:W.code});show('s-scoring');setTimeout(runScoring,700);
+}
+
+/* ========== 채점 → 리포트 ========== */
+const R={code:null,scores:null,prof:null};
+function runScoring(){
+  const rubric={};for(const id in cRubric){rubric[id]=Object.values(cRubric[id]).reduce((a,b)=>a+(b||0),0);}
+  const out=scoreLayer2(cResp,rubric);
+  R.code=W.code;R.scores=out.scores;R.prof=out;
+  paintReport();
+  const _v=DIMS.filter(x=>out.scores[x.id]!=null);const _c=_v.length?Math.round(_v.reduce((a,x)=>a+out.scores[x.id],0)/_v.length):0;
+  track('a_paid_complete',{style_code:W.code,composite:_c,grade:gradeOf(_c)[0],weakest:out.weakest});
+  submitResults('full',out);
+  show('s-report');
+}
+function drawRadar(svgId,sc){const svg=$(svgId),cx=150,cy=128,R0=92;const pt=(i,r)=>{const a=-Math.PI/2+i*Math.PI/3;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+  const acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();let s='';
+  [1,.75,.5,.25].forEach(k=>{let p='';for(let i=0;i<6;i++){const[x,y]=pt(i,R0*k);p+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}s+=`<path d="${p}Z" fill="none" stroke="#E4E1EC" stroke-width="1"/>`;});
+  for(let i=0;i<6;i++){const[x,y]=pt(i,R0);s+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#E4E1EC" stroke-width="1"/>`;}
+  let dp='';for(let i=0;i<6;i++){const v=(sc[DIMS[i].id]||0)/100;const[x,y]=pt(i,R0*v);dp+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)+' ';}
+  s+=`<path d="${dp}Z" fill="${acc}" fill-opacity="0.25" stroke="${acc}" stroke-width="2.5"/>`;
+  for(let i=0;i<6;i++){const v=(sc[DIMS[i].id]||0)/100;const[x,y]=pt(i,R0*v);s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="${acc}"/>`;}
+  for(let i=0;i<6;i++){const[x,y]=pt(i,R0+22);s+=`<text x="${x.toFixed(1)}" y="${(y-4).toFixed(1)}" font-size="12" font-weight="700" fill="#1B1726" text-anchor="middle">${DIMS[i].name}</text><text x="${x.toFixed(1)}" y="${(y+10).toFixed(1)}" font-size="11" fill="${acc}" text-anchor="middle" font-family="JetBrains Mono" font-weight="800">${Math.round(sc[DIMS[i].id]||0)}</text>`;}svg.innerHTML=s;}
+function drawTrend(svgId,now){const svg=$(svgId),x0=44,x1=276,yT=24,yB=130,lo=20,hi=100;const goal=Math.min(100,now+Math.max(4,Math.round((100-now)*0.22)));const yOf=v=>yB-(v-lo)/(hi-lo)*(yB-yT);
+  const acc=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();let s='';
+  [100,75,50,25].forEach(v=>{const y=yOf(v).toFixed(1);s+=`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="#EFEDF3" stroke-width="1"/><text x="${x0-8}" y="${(+y+3)}" font-size="9" fill="#9b95a6" text-anchor="end">${v}</text>`;});
+  const yN=yOf(now),yG=yOf(goal);s+=`<line x1="${x0}" y1="${yN.toFixed(1)}" x2="${x1}" y2="${yG.toFixed(1)}" stroke="${acc}" stroke-width="2.5"/><circle cx="${x0}" cy="${yN.toFixed(1)}" r="5" fill="${acc}"/><circle cx="${x1}" cy="${yG.toFixed(1)}" r="5" fill="#fff" stroke="${acc}" stroke-width="2.5"/>`;
+  s+=`<text x="${x0}" y="${(yN-12).toFixed(1)}" font-size="12" font-weight="800" fill="${acc}" text-anchor="middle" font-family="JetBrains Mono">${now}</text><text x="${x1}" y="${(yG-12).toFixed(1)}" font-size="12" font-weight="800" fill="${acc}" text-anchor="middle" font-family="JetBrains Mono">${goal}</text>`;
+  s+=`<text x="${x0}" y="152" font-size="11" fill="#6B6577" text-anchor="middle">오늘 (1차)</text><text x="${x1}" y="152" font-size="11" fill="#6B6577" text-anchor="middle">4주 목표</text>`;svg.innerHTML=s;}
+const SETMETA=[{k:"ChatGPT",c:"#10A37F",where:"설정 → 개인 맞춤 설정(켜기)",what:"<b>[나는]</b>은 '당신에 대해', <b>나머지 블록</b>은 '응답 방식' 필드에."},
+  {k:"Claude",c:"#D77757",where:"설정 → 'Claude가 고려할 선호'",what:"블록 <b>전체</b>를 붙여넣기. 유료면 작업별 <b>프로젝트 지침</b>으로."},
+  {k:"Gemini",c:"#4285F4",where:"Gem 만들기 → 지침",what:"블록을 <b>Gem 지침</b>으로 저장. 자주 쓰는 자료는 첨부."}];
+function preset(code){if(code[2]==='V')return{cg:'Professional(전문) 또는 Candid(직설)',cl:'Explanatory(설명형) 또는 검증용 커스텀'};return{cg:'Efficient(효율)',cl:'Concise(간결)'};}
+function paintReport(){const code=R.code,sc=R.scores,d=T[code],g=GROUPS_R[d.f];setAccent(d.f,GROUPS_R);
+  $('r-recap').innerHTML=`<div class="rc">${code}</div><div><div class="rn">${d.n}</div><div class="rg">${g.emoji} ${g.name} · 협업 스타일</div></div><div class="pill">스타일 확인 완료</div>`;
+  const valid=DIMS.filter(x=>sc[x.id]!=null);const comp=valid.length?Math.round(valid.reduce((a,x)=>a+sc[x.id],0)/valid.length):0;const gr=gradeOf(comp);
+  const msgs=["기초를 다지는 단계 — 가장 빠르게 자랄 구간입니다.","실무에 쓰는 단계 — 한 차원만 끌어올려도 체감이 큽니다.","능숙한 단계 — 약한 차원을 메우면 전문가로 갑니다.","전문가 단계 — 강점을 남에게 전수할 때입니다."];
+  $('r-grade').innerHTML=`<div class="gl">종합 등급</div><div class="gv"><span class="gnum">${comp}</span><span class="gname">${gr[0]}</span></div><div class="gscale">${[0,1,2,3].map(i=>`<i class="${i<=gr[1]?'on':''}"></i>`).join('')}</div><div style="font-size:11.5px;opacity:.85">탐색가 · 실무자 · 능숙자 · 전문가</div><div class="gmsg">${msgs[gr[1]]}</div>`;
+  drawRadar('r-radar',sc);
+  const gx=GAPX[code],prio=gx.dimId;let lowId=DIMS[0].id;DIMS.forEach(x=>{if((sc[x.id]??999)<(sc[lowId]??999))lowId=x.id;});
+  $('r-dimrows').innerHTML=DIMS.map(x=>{const v=sc[x.id];const gg=gradeOf(v);const fl=[];if(x.id===prio)fl.push('우선 성장');if(x.id===lowId&&x.id!==prio)fl.push('최저');
+    return `<div class="dimrow ${x.id===prio?'prio':''}"><div class="dh"><span class="dn">${x.name}</span>${fl.map(f=>`<span class="flag">${f}</span>`).join('')}<span class="gchip g${gg[1]}">${gg[0]}</span><span class="ds">${v==null?'—':Math.round(v)}</span></div><div class="dt"><i style="width:${v||0}%"></i></div></div>`;}).join('');
+  const gd=DIMS.find(x=>x.id===prio);$('g-dim').textContent=gd.name;$('g-sc').textContent=(sc[prio]==null?'—':Math.round(sc[prio])+' · '+gradeOf(sc[prio])[0]);
+  $('g-mech').innerHTML=gx.mechanism.map(t=>'<p>'+t+'</p>').join('');
+  $('g-risks').innerHTML=gx.risks.map(r=>`<li>${r}</li>`).join('');$('g-syn').textContent=gx.synergy;
+  const ix=gx.interaction2;$('g-i-intro').textContent=ix.intro;$('g-i-lines').innerHTML=ix.lines.map(l=>'<li>'+l.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')+'</li>').join('');$('g-i-concl').textContent=ix.concl;
+  const cur=sc[prio]==null?0:Math.round(sc[prio]);const goal=Math.min(100,cur+Math.max(4,Math.round((100-cur)*0.28)));
+  $('p-now').textContent=cur+' '+gradeOf(cur)[0];$('p-goal').textContent=goal+' '+gradeOf(goal)[0];$('g-routine').innerHTML=gx.routines.map(r=>`<li>${r}</li>`).join('');
+  const tu=TUNE[code];$('tk-gap').textContent=gd.name;$('tk-prompt').innerHTML=tu.prompt.replace(/</g,'&lt;').replace(/★유료/g,'<span class="star">★유료</span>');
+  const tc=$('tk-copy');tc.classList.remove('done');tc.textContent='📋 프롬프트 복사하기';
+  const pr=preset(code);$('r-setrows').innerHTML=SETMETA.map((m,i)=>{const pv=i===0?pr.cg:(i===1?pr.cl:'자료 첨부 권장');const pl=i===0?'성격 프리셋':(i===1?'스타일':'팁');
+    return `<div class="setrow"><div class="nm"><span class="ic" style="background:${m.c}">${m.k[0]}</span>${m.k}</div><div class="wh">${m.where} — ${m.what}</div><div class="pre">${pl}: ${pv}</div></div>`;}).join('');
+  drawTrend('r-trend',comp);}
+
+/* ========== 리셋 ========== */
+function restartAll(){wqIdx=0;wqAns.fill(null);for(const k in cResp)delete cResp[k];for(const k in cRubric)delete cRubric[k];cqIdx=0;show('s-intro');}
+
+/* 초기 진입 계측 */
+track('intro_view');
+if(new URLSearchParams(location.search).get('retest'))track('retest_return');
+
+</script>
+</body>
+</html>
